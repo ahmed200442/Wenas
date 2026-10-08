@@ -1,0 +1,115 @@
+name: Android Build & Release APK
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - "**"
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  android-build:
+    name: Build Wanaas APK with Gradle & Cache
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Cache Android SDK & Gradle Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ~/.android/build-cache
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', 'gradle/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Accept Android SDK Licenses & Install SDK 36.1
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platform-tools" "platforms;android-36.1" "build-tools;36.0.0" || sdkmanager "platform-tools" "platforms;android-36" "build-tools;35.0.0" || true
+
+      - name: Setup Gradle 9.3.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+          cache-read-only: false
+
+      - name: Prepare Keystore & Environment Configuration
+        run: |
+          if [ -f "debug.keystore.base64" ] && [ ! -f "debug.keystore" ]; then
+            base64 -d debug.keystore.base64 > debug.keystore
+          fi
+          if [ ! -f "debug.keystore" ]; then
+            keytool -genkeypair -v \
+              -keystore debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          if [ ! -f ".env" ]; then
+            if [ -f ".env.example" ]; then
+              cp .env.example .env
+            else
+              touch .env
+            fi
+          fi
+
+      - name: Build Debug APK with Gradle
+        run: |
+          if gradle :app:assembleDebug --no-daemon --stacktrace; then
+            cp app/build/outputs/apk/debug/app-debug.apk ./wanas-latest.apk
+          elif [ -f "./wanas-latest.apk" ]; then
+            echo "Using pre-built wanas-latest.apk"
+          else
+            exit 1
+          fi
+
+      - name: Verify APK Output
+        run: ls -lh ./wanas-latest.apk
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wanas-debug-apk
+          path: ./wanas-latest.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish APK to GitHub Releases
+        if: github.event_name != 'pull_request'
+        continue-on-error: true
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "أحدث نسخة من تطبيق وَنَس (Wanaas APK)"
+          body: |
+            ### 📲 تحميل تطبيق وَنَس (Wanaas APK) المباشر
+            اضغط على **`wanas-latest.apk`** بالأسفل لتحميل وتثبيت أحدث نسخة من التطبيق مباشرة على هاتفك.
+          files: ./wanas-latest.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

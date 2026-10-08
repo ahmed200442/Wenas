@@ -1,0 +1,983 @@
+{
+  "entities": {
+    "ChatRoomMetadata": {
+      "title": "ChatRoomMetadata",
+      "description": "Metadata for a chat room stored in Firestore and synced with Supabase, visible to all signed-in members.",
+      "type": "object",
+      "properties": {
+        "roomId": {
+          "type": "string",
+          "description": "Unique identifier of the chat room document."
+        },
+        "roomName": {
+          "type": "string",
+          "description": "Display name of the chat room."
+        },
+        "creatorId": {
+          "type": "string",
+          "description": "UID of the authenticated user who created the chat room."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation server timestamp (submitted via FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "roomId",
+        "roomName",
+        "creatorId",
+        "timestamp"
+      ]
+    },
+    "MemberProfile": {
+      "title": "MemberProfile",
+      "description": "Public member account profile linked to Supabase and Firestore, including unique memberIdCode (رقم معرف لكل عضو) and RBAC role without exposing private email.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Authenticated user UID."
+        },
+        "memberIdCode": {
+          "type": "string",
+          "description": "Unique member identifier code (e.g., WNS-1042) shown across rooms, members directory, and Fadfada."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Member display name shown in rooms."
+        },
+        "avatarEmoji": {
+          "type": "string",
+          "description": "Member avatar icon or emoji."
+        },
+        "avatarUri": {
+          "type": "string",
+          "description": "Custom avatar image URI or URL."
+        },
+        "bio": {
+          "type": "string",
+          "description": "Short personal bio or status message."
+        },
+        "roleBadge": {
+          "type": "string",
+          "description": "Member badge label."
+        },
+        "roomsCreatedCount": {
+          "type": "integer",
+          "description": "Total chat rooms created by this member."
+        },
+        "roomsJoinedCount": {
+          "type": "integer",
+          "description": "Total room entries by this member."
+        },
+        "messagesSentCount": {
+          "type": "integer",
+          "description": "Total chat messages or activity entries sent by this member."
+        },
+        "supabaseSynced": {
+          "type": "boolean",
+          "description": "Whether the member account is linked and synced with Supabase."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the last profile update."
+        }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "avatarEmoji",
+        "roleBadge",
+        "supabaseSynced",
+        "updatedAt"
+      ]
+    },
+    "UserRoleAssignment": {
+      "title": "UserRoleAssignment",
+      "description": "Role-based access control (RBAC) assignment stored in /user_roles/{userId}. hamadanagy1979@gmail.com is the primary OWNER with full permissions.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "UID of the user assigned this RBAC role."
+        },
+        "memberIdCode": {
+          "type": "string",
+          "description": "Unique member code (e.g., WNS-0001)."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name of the member."
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "OWNER",
+            "SUPER_ADMIN",
+            "ROOM_ADMIN",
+            "MODERATOR",
+            "SUPPORT",
+            "MEMBER"
+          ],
+          "description": "Assigned RBAC role."
+        },
+        "permissions": {
+          "type": "array",
+          "description": "List of granular permission strings granted to this role."
+        },
+        "assignedBy": {
+          "type": "string",
+          "description": "UID or name of the Owner/Super Admin who assigned the role."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the role was assigned or updated."
+        }
+      },
+      "required": [
+        "userId",
+        "memberIdCode",
+        "displayName",
+        "role",
+        "permissions",
+        "assignedBy",
+        "updatedAt"
+      ]
+    },
+    "MemberChatHistoryEntry": {
+      "title": "MemberChatHistoryEntry",
+      "description": "Personal chat history or room activity entry for a member.",
+      "type": "object",
+      "properties": {
+        "entryId": {
+          "type": "string",
+          "description": "Unique identifier of the chat history item."
+        },
+        "userId": {
+          "type": "string",
+          "description": "UID of the member who owns this history item."
+        },
+        "roomId": {
+          "type": "string",
+          "description": "ID of the chat room."
+        },
+        "roomName": {
+          "type": "string",
+          "description": "Display name of the chat room."
+        },
+        "messageText": {
+          "type": "string",
+          "description": "Message text or activity summary."
+        },
+        "activityType": {
+          "type": "string",
+          "enum": [
+            "MESSAGE",
+            "JOIN_ROOM",
+            "CREATE_ROOM",
+            "LEAVE_ROOM"
+          ],
+          "description": "Type of chat or room history event."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the chat history entry."
+        }
+      },
+      "required": [
+        "entryId",
+        "userId",
+        "roomId",
+        "roomName",
+        "messageText",
+        "activityType",
+        "timestamp"
+      ]
+    },
+    "RoomActiveMember": {
+      "title": "RoomActiveMember",
+      "description": "Active member currently present inside a chat room.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "UID of the member inside the room."
+        },
+        "roomId": {
+          "type": "string",
+          "description": "Room ID that the member joined."
+        },
+        "memberName": {
+          "type": "string",
+          "description": "Display name of the member inside the room."
+        },
+        "avatarEmoji": {
+          "type": "string",
+          "description": "Avatar emoji of the member."
+        },
+        "roleBadge": {
+          "type": "string",
+          "description": "Badge of the member in the room."
+        },
+        "supabaseLinked": {
+          "type": "boolean",
+          "description": "Whether the member account is linked to Supabase."
+        },
+        "joinedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the member entered the room."
+        }
+      },
+      "required": [
+        "userId",
+        "roomId",
+        "memberName",
+        "avatarEmoji",
+        "roleBadge",
+        "supabaseLinked",
+        "joinedAt"
+      ]
+    },
+    "VoiceRoomSeatDocument": {
+      "title": "VoiceRoomSeatDocument",
+      "description": "Real-time voice seat state inside a chat room (/chat_rooms/{roomId}/seats/{seatId}) visible to all users.",
+      "type": "object",
+      "properties": {
+        "seatId": {
+          "type": "string",
+          "description": "Seat document ID (e.g., seat_0 to seat_7)."
+        },
+        "roomId": {
+          "type": "string",
+          "description": "Parent room ID."
+        },
+        "seatIndex": {
+          "type": "integer",
+          "description": "Seat index from 0 to 7."
+        },
+        "occupantUserId": {
+          "type": "string",
+          "description": "UID of the seated member or empty string if vacant."
+        },
+        "occupantMemberCode": {
+          "type": "string",
+          "description": "Unique member ID code of the seated member (e.g., WNS-1042)."
+        },
+        "occupantName": {
+          "type": "string",
+          "description": "Display name of the seated member."
+        },
+        "occupantEmoji": {
+          "type": "string",
+          "description": "Avatar emoji of the seated member."
+        },
+        "seatRole": {
+          "type": "string",
+          "enum": [
+            "HOST",
+            "CO_HOST",
+            "SPEAKER",
+            "SEATED_MEMBER",
+            "EMPTY"
+          ],
+          "description": "Role on the voice stage."
+        },
+        "isSpeaking": {
+          "type": "boolean",
+          "description": "Whether the member is actively speaking."
+        },
+        "isMuted": {
+          "type": "boolean",
+          "description": "Whether the microphone on this seat is muted."
+        },
+        "hasPendingMicRequest": {
+          "type": "boolean",
+          "description": "Whether there is a pending mic request on this seat."
+        },
+        "isSeatLocked": {
+          "type": "boolean",
+          "description": "Whether the seat is locked by the room host/admin."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the seat state change."
+        }
+      },
+      "required": [
+        "seatId",
+        "roomId",
+        "seatIndex",
+        "occupantUserId",
+        "occupantMemberCode",
+        "occupantName",
+        "occupantEmoji",
+        "seatRole",
+        "isSpeaking",
+        "isMuted",
+        "hasPendingMicRequest",
+        "isSeatLocked",
+        "updatedAt"
+      ]
+    },
+    "RoomMicRequestDocument": {
+      "title": "RoomMicRequestDocument",
+      "description": "Real-time mic request queue entry inside a chat room (/chat_rooms/{roomId}/mic_requests/{requestId}) synced for all participants.",
+      "type": "object",
+      "properties": {
+        "requestId": {
+          "type": "string",
+          "description": "Unique mic request ID."
+        },
+        "roomId": {
+          "type": "string",
+          "description": "Room ID."
+        },
+        "userId": {
+          "type": "string",
+          "description": "UID of the member requesting the mic."
+        },
+        "memberIdCode": {
+          "type": "string",
+          "description": "Unique member ID code of the requester."
+        },
+        "userName": {
+          "type": "string",
+          "description": "Display name of the requester."
+        },
+        "userEmoji": {
+          "type": "string",
+          "description": "Avatar emoji of the requester."
+        },
+        "queueNumber": {
+          "type": "integer",
+          "description": "Order number in the host's mic queue."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "NONE",
+            "PENDING",
+            "APPROVED",
+            "REJECTED",
+            "MUTED_BY_HOST"
+          ],
+          "description": "Server-side approval status of the mic request."
+        },
+        "requestedSeatIndex": {
+          "type": "integer",
+          "description": "Preferred seat index (0..7)."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the request was submitted."
+        }
+      },
+      "required": [
+        "requestId",
+        "roomId",
+        "userId",
+        "memberIdCode",
+        "userName",
+        "userEmoji",
+        "queueNumber",
+        "status",
+        "requestedSeatIndex",
+        "timestamp"
+      ]
+    },
+    "RoomChatMessageDocument": {
+      "title": "RoomChatMessageDocument",
+      "description": "Live chat message inside a chat room (/chat_rooms/{roomId}/room_messages/{messageId}) synced across all connected devices.",
+      "type": "object",
+      "properties": {
+        "messageId": {
+          "type": "string",
+          "description": "Unique message ID."
+        },
+        "roomId": {
+          "type": "string",
+          "description": "Room ID."
+        },
+        "senderId": {
+          "type": "string",
+          "description": "UID of the message sender."
+        },
+        "senderMemberCode": {
+          "type": "string",
+          "description": "Unique member ID code of the sender."
+        },
+        "senderName": {
+          "type": "string",
+          "description": "Display name of the sender."
+        },
+        "senderEmoji": {
+          "type": "string",
+          "description": "Avatar emoji of the sender."
+        },
+        "senderRoleBadge": {
+          "type": "string",
+          "description": "Role badge of the sender."
+        },
+        "messageText": {
+          "type": "string",
+          "description": "Chat message text."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the message."
+        }
+      },
+      "required": [
+        "messageId",
+        "roomId",
+        "senderId",
+        "senderMemberCode",
+        "senderName",
+        "senderEmoji",
+        "senderRoleBadge",
+        "messageText",
+        "timestamp"
+      ]
+    },
+    "RoomPresenceBannerEvent": {
+      "title": "RoomPresenceBannerEvent",
+      "description": "Transient room entry/exit event banner ('دخل العضو فلان' / 'خرج العضو فلان').",
+      "type": "object",
+      "properties": {
+        "eventId": {
+          "type": "string",
+          "description": "Unique event identifier."
+        },
+        "roomId": {
+          "type": "string",
+          "description": "Room ID where the entry or exit occurred."
+        },
+        "userId": {
+          "type": "string",
+          "description": "UID of the member who entered or left."
+        },
+        "memberName": {
+          "type": "string",
+          "description": "Display name of the member."
+        },
+        "avatarEmoji": {
+          "type": "string",
+          "description": "Avatar emoji of the member."
+        },
+        "eventType": {
+          "type": "string",
+          "enum": [
+            "JOIN",
+            "LEAVE"
+          ],
+          "description": "JOIN when entering the room, LEAVE when exiting."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the event."
+        }
+      },
+      "required": [
+        "eventId",
+        "roomId",
+        "userId",
+        "memberName",
+        "avatarEmoji",
+        "eventType",
+        "createdAt"
+      ]
+    },
+    "AnonymousFadfadaPost": {
+      "title": "AnonymousFadfadaPost",
+      "description": "Public anonymous venting ('فضفضة برقم معرف لكل عضو') post visible to all members with a unique memberIdCode instead of real name or email.",
+      "type": "object",
+      "properties": {
+        "postId": {
+          "type": "string",
+          "description": "Unique identifier of the venting post."
+        },
+        "authorId": {
+          "type": "string",
+          "description": "UID of the member who created the post."
+        },
+        "memberIdCode": {
+          "type": "string",
+          "description": "Unique member identifier code (e.g., WNS-4821) shown on the Fadfada post for each member."
+        },
+        "content": {
+          "type": "string",
+          "description": "Venting message content."
+        },
+        "moodTag": {
+          "type": "string",
+          "description": "Mood or emotion tag chosen by the user."
+        },
+        "heartsCount": {
+          "type": "integer",
+          "description": "Supportive hearts count."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the post was published."
+        }
+      },
+      "required": [
+        "postId",
+        "authorId",
+        "content",
+        "moodTag",
+        "heartsCount",
+        "timestamp"
+      ]
+    },
+    "FadfadaAdminIdentity": {
+      "title": "FadfadaAdminIdentity",
+      "description": "Admin-only identity record for an anonymous venting post containing the author's real display name, email, and memberIdCode, readable only by the app owner/admin.",
+      "type": "object",
+      "properties": {
+        "postId": {
+          "type": "string",
+          "description": "Matching ID of the venting post."
+        },
+        "authorId": {
+          "type": "string",
+          "description": "UID of the member who created the post."
+        },
+        "memberIdCode": {
+          "type": "string",
+          "description": "Unique member identifier code (e.g., WNS-4821)."
+        },
+        "authorName": {
+          "type": "string",
+          "description": "Real display name of the member visible only to the app owner/admin."
+        },
+        "authorEmail": {
+          "type": "string",
+          "description": "Email address of the member visible only to the app owner/admin."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the identity record was stored."
+        }
+      },
+      "required": [
+        "postId",
+        "authorId",
+        "authorName",
+        "authorEmail",
+        "timestamp"
+      ]
+    },
+    "PushNotificationEvent": {
+      "title": "PushNotificationEvent",
+      "description": "Real-time push notification event triggered on a new chat message, friend room invitation, favorite room live broadcast, or mic request.",
+      "type": "object",
+      "properties": {
+        "notificationId": {
+          "type": "string",
+          "description": "Unique identifier of the push notification event."
+        },
+        "senderId": {
+          "type": "string",
+          "description": "UID of the member who sent the message or invitation."
+        },
+        "senderName": {
+          "type": "string",
+          "description": "Display name of the sender."
+        },
+        "recipientQuery": {
+          "type": "string",
+          "description": "Target friend name, email, or 'ALL' for room broadcast."
+        },
+        "roomId": {
+          "type": "string",
+          "description": "ID of the chat room."
+        },
+        "roomName": {
+          "type": "string",
+          "description": "Display name of the chat room."
+        },
+        "notificationType": {
+          "type": "string",
+          "enum": [
+            "NEW_MESSAGE",
+            "ROOM_INVITE",
+            "FAVORITE_ROOM_LIVE",
+            "PRIVATE_INVITE",
+            "FRIEND_REQUEST",
+            "FRIEND_ACCEPTED",
+            "MIC_REQUEST",
+            "MIC_APPROVED",
+            "GIFT_RECEIVED",
+            "ADMIN_ALERT"
+          ],
+          "description": "Type of push notification."
+        },
+        "messageBody": {
+          "type": "string",
+          "description": "Message preview or invitation text."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the notification."
+        }
+      },
+      "required": [
+        "notificationId",
+        "senderId",
+        "senderName",
+        "recipientQuery",
+        "roomId",
+        "roomName",
+        "notificationType",
+        "messageBody",
+        "timestamp"
+      ]
+    },
+    "VerifiedPaymentReceipt": {
+      "title": "VerifiedPaymentReceipt",
+      "description": "Verified payment receipt required before unlocking VIP features or paid actions.",
+      "type": "object",
+      "properties": {
+        "receiptId": {
+          "type": "string",
+          "description": "Unique receipt ID."
+        },
+        "userId": {
+          "type": "string",
+          "description": "UID of the member who completed the payment."
+        },
+        "memberName": {
+          "type": "string",
+          "description": "Display name of the paying member."
+        },
+        "planId": {
+          "type": "string",
+          "description": "Selected subscription or package ID."
+        },
+        "planTitle": {
+          "type": "string",
+          "description": "Display title of the paid package."
+        },
+        "amountEgp": {
+          "type": "integer",
+          "description": "Paid amount in EGP."
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": [
+            "BANK_CARD",
+            "VODAFONE_CASH",
+            "INSTAPAY"
+          ],
+          "description": "Payment method used."
+        },
+        "transactionReference": {
+          "type": "string",
+          "description": "Masked card last-4 or wallet/InstaPay reference number."
+        },
+        "verified": {
+          "type": "boolean",
+          "description": "True only after payment validation succeeds."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the payment."
+        }
+      },
+      "required": [
+        "receiptId",
+        "userId",
+        "memberName",
+        "planId",
+        "planTitle",
+        "amountEgp",
+        "paymentMethod",
+        "transactionReference",
+        "verified",
+        "timestamp"
+      ]
+    },
+    "RoomGiftTransactionDocument": {
+      "title": "RoomGiftTransactionDocument",
+      "description": "Document recording an interactive gift transaction sent between users inside a voice room or globally in Firestore.",
+      "type": "object",
+      "properties": {
+        "transactionId": {
+          "type": "string",
+          "description": "Unique identifier of the gift transaction."
+        },
+        "roomId": {
+          "type": "string",
+          "description": "Room ID where the gift was sent."
+        },
+        "roomName": {
+          "type": "string",
+          "description": "Display name of the room where the gift was sent."
+        },
+        "giftId": {
+          "type": "string",
+          "description": "Catalog ID of the gift (e.g., gift_rose, gift_crown)."
+        },
+        "giftNameAr": {
+          "type": "string",
+          "description": "Arabic name of the gift."
+        },
+        "giftEmoji": {
+          "type": "string",
+          "description": "Emoji icon of the gift."
+        },
+        "costCoins": {
+          "type": "integer",
+          "description": "Total coins spent on this gift transaction."
+        },
+        "quantity": {
+          "type": "integer",
+          "description": "Multiplier or combo quantity of the gift sent (e.g., 1, 5, 10, 99)."
+        },
+        "senderId": {
+          "type": "string",
+          "description": "UID of the authenticated user who sent the gift."
+        },
+        "senderMemberCode": {
+          "type": "string",
+          "description": "Unique member ID code of the sender (e.g., WNS-1001)."
+        },
+        "senderName": {
+          "type": "string",
+          "description": "Display name of the sender."
+        },
+        "recipientId": {
+          "type": "string",
+          "description": "UID or identifier of the recipient user."
+        },
+        "recipientName": {
+          "type": "string",
+          "description": "Display name of the recipient user."
+        },
+        "pkTeamSupported": {
+          "type": "string",
+          "enum": [
+            "RED",
+            "BLUE",
+            "NONE"
+          ],
+          "description": "Which PK team was boosted by this gift."
+        },
+        "pkBonusPoints": {
+          "type": "integer",
+          "description": "PK battle points awarded by this gift transaction."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the gift transaction."
+        }
+      },
+      "required": [
+        "transactionId",
+        "roomId",
+        "roomName",
+        "giftId",
+        "giftNameAr",
+        "giftEmoji",
+        "costCoins",
+        "quantity",
+        "senderId",
+        "senderMemberCode",
+        "senderName",
+        "recipientId",
+        "recipientName",
+        "pkTeamSupported",
+        "pkBonusPoints",
+        "timestamp"
+      ]
+    },
+    "WebRtcSignalingDocument": {
+      "title": "WebRtcSignalingDocument",
+      "description": "WebRTC native peer-to-peer audio signaling document (SDP OFFER, SDP ANSWER, or ICE_CANDIDATE) exchanged via Firestore between active room members.",
+      "type": "object",
+      "properties": {
+        "signalId": {
+          "type": "string",
+          "description": "Unique identifier of the WebRTC signaling message."
+        },
+        "roomId": {
+          "type": "string",
+          "description": "ID of the voice chat room."
+        },
+        "senderId": {
+          "type": "string",
+          "description": "UID of the room member who generated this signal."
+        },
+        "senderName": {
+          "type": "string",
+          "description": "Display name of the sending room member."
+        },
+        "targetUserId": {
+          "type": "string",
+          "description": "UID of the target room member receiving the offer, answer, or ICE candidate."
+        },
+        "signalType": {
+          "type": "string",
+          "enum": [
+            "OFFER",
+            "ANSWER",
+            "ICE_CANDIDATE"
+          ],
+          "description": "Type of WebRTC signaling payload."
+        },
+        "sdp": {
+          "type": "string",
+          "description": "SDP offer or answer string when signalType is OFFER or ANSWER."
+        },
+        "sdpMid": {
+          "type": "string",
+          "description": "ICE candidate media stream identification tag."
+        },
+        "sdpMLineIndex": {
+          "type": "integer",
+          "description": "ICE candidate m-line index."
+        },
+        "candidate": {
+          "type": "string",
+          "description": "ICE candidate SDP string when signalType is ICE_CANDIDATE."
+        },
+        "sessionEpochMs": {
+          "type": "integer",
+          "description": "Client session start epoch in milliseconds to prevent replaying stale signals when a new member joins."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the signaling message was written."
+        }
+      },
+      "required": [
+        "signalId",
+        "roomId",
+        "senderId",
+        "senderName",
+        "targetUserId",
+        "signalType",
+        "sdp",
+        "sdpMid",
+        "sdpMLineIndex",
+        "candidate",
+        "sessionEpochMs",
+        "timestamp"
+      ]
+    }
+  },
+  "firestore": {
+    "/chat_rooms/{roomId}": {
+      "schema": {
+        "$ref": "#/entities/ChatRoomMetadata"
+      },
+      "description": "Collection storing chat room metadata documents shared with all signed-in members."
+    },
+    "/members/{userId}": {
+      "schema": {
+        "$ref": "#/entities/MemberProfile"
+      },
+      "description": "Public member profiles with unique memberIdCode linked with Supabase and Firestore."
+    },
+    "/user_roles/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserRoleAssignment"
+      },
+      "description": "Role-based access control (RBAC) assignments where hamadanagy1979@gmail.com is OWNER."
+    },
+    "/members/{userId}/chat_history/{entryId}": {
+      "schema": {
+        "$ref": "#/entities/MemberChatHistoryEntry"
+      },
+      "description": "Member personal chat and room activity history."
+    },
+    "/chat_rooms/{roomId}/active_members/{memberId}": {
+      "schema": {
+        "$ref": "#/entities/RoomActiveMember"
+      },
+      "description": "Live list of members currently present inside a chat room."
+    },
+    "/chat_rooms/{roomId}/seats/{seatId}": {
+      "schema": {
+        "$ref": "#/entities/VoiceRoomSeatDocument"
+      },
+      "description": "Live 8-seat voice stage inside a chat room synced across all devices."
+    },
+    "/chat_rooms/{roomId}/mic_requests/{requestId}": {
+      "schema": {
+        "$ref": "#/entities/RoomMicRequestDocument"
+      },
+      "description": "Live mic request queue and server approval status inside a chat room."
+    },
+    "/chat_rooms/{roomId}/room_messages/{messageId}": {
+      "schema": {
+        "$ref": "#/entities/RoomChatMessageDocument"
+      },
+      "description": "Live room chat messages synced across all participants."
+    },
+    "/chat_rooms/{roomId}/presence_events/{eventId}": {
+      "schema": {
+        "$ref": "#/entities/RoomPresenceBannerEvent"
+      },
+      "description": "Live stream of join and leave notifications inside a chat room."
+    },
+    "/fadfada_posts/{postId}": {
+      "schema": {
+        "$ref": "#/entities/AnonymousFadfadaPost"
+      },
+      "description": "Anonymous venting posts ('فضفضة برقم معرف لكل عضو') showing unique memberIdCode without PII."
+    },
+    "/fadfada_admin_identities/{postId}": {
+      "schema": {
+        "$ref": "#/entities/FadfadaAdminIdentity"
+      },
+      "description": "Admin-only collection storing the real name, email, and memberIdCode of the venting author for the app owner."
+    },
+    "/push_notifications/{notificationId}": {
+      "schema": {
+        "$ref": "#/entities/PushNotificationEvent"
+      },
+      "description": "Real-time push notifications for new messages, friend room invitations, mic requests, and live rooms."
+    },
+    "/payment_receipts/{receiptId}": {
+      "schema": {
+        "$ref": "#/entities/VerifiedPaymentReceipt"
+      },
+      "description": "Verified payment receipts for VIP memberships and paid features."
+    },
+    "/chat_rooms/{roomId}/room_gifts/{transactionId}": {
+      "schema": {
+        "$ref": "#/entities/RoomGiftTransactionDocument"
+      },
+      "description": "Live interactive gift transactions sent between users inside a chat room."
+    },
+    "/gift_transactions/{transactionId}": {
+      "schema": {
+        "$ref": "#/entities/RoomGiftTransactionDocument"
+      },
+      "description": "Global ledger of gift transactions between users across rooms and sessions."
+    },
+    "/chat_rooms/{roomId}/webrtc_signals/{signalId}": {
+      "schema": {
+        "$ref": "#/entities/WebRtcSignalingDocument"
+      },
+      "description": "Real-time WebRTC signaling channel (SDP Offer/Answer and ICE Candidates) connecting active room members."
+    }
+  }
+}

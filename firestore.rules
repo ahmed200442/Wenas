@@ -1,0 +1,672 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Hardened Global Primitives & Role-Based Access Control (RBAC)
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function incoming() {
+      return request.resource.data;
+    }
+    function existing() {
+      return resource.data;
+    }
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    function isAppOwnerEmail() {
+      return isSignedIn() &&
+             ('email' in request.auth.token) &&
+             request.auth.token.email == 'hamadanagy1979@gmail.com';
+    }
+    function hasAssignedRole(roleName) {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/user_roles/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/user_roles/$(request.auth.uid)).data.role == roleName;
+    }
+    function isOwnerRole() {
+      return isAppOwnerEmail() || hasAssignedRole('OWNER');
+    }
+    function isSuperAdminOrOwner() {
+      return isOwnerRole() || hasAssignedRole('SUPER_ADMIN');
+    }
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        isSuperAdminOrOwner() ||
+        hasAssignedRole('ROOM_ADMIN') ||
+        hasAssignedRole('MODERATOR')
+      );
+    }
+
+    // 3. Entity Validation Helpers
+    function isValidChatRoomMetadata(data) {
+      return data.roomId is string && isValidId(data.roomId) &&
+             data.roomName is string && data.roomName.size() >= 1 && data.roomName.size() <= 120 &&
+             data.creatorId is string && isValidId(data.creatorId) &&
+             data.timestamp is timestamp && data.timestamp <= request.time;
+    }
+
+    function isValidMemberProfile(data) {
+      return data.userId is string && isValidId(data.userId) &&
+             (!('memberIdCode' in data) || (data.memberIdCode is string && data.memberIdCode.size() >= 3 && data.memberIdCode.size() <= 32)) &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80 &&
+             data.avatarEmoji is string && data.avatarEmoji.size() >= 1 && data.avatarEmoji.size() <= 16 &&
+             (!('avatarUri' in data) || data.avatarUri == null || (data.avatarUri is string && data.avatarUri.size() <= 1024)) &&
+             (!('bio' in data) || data.bio == null || (data.bio is string && data.bio.size() <= 240)) &&
+             data.roleBadge is string && data.roleBadge.size() >= 1 && data.roleBadge.size() <= 40 &&
+             (!('roomsCreatedCount' in data) || (data.roomsCreatedCount is int && data.roomsCreatedCount >= 0)) &&
+             (!('roomsJoinedCount' in data) || (data.roomsJoinedCount is int && data.roomsJoinedCount >= 0)) &&
+             (!('messagesSentCount' in data) || (data.messagesSentCount is int && data.messagesSentCount >= 0)) &&
+             data.supabaseSynced is bool &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidUserRoleAssignment(data) {
+      return data.userId is string && isValidId(data.userId) &&
+             data.memberIdCode is string && data.memberIdCode.size() >= 3 && data.memberIdCode.size() <= 32 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80 &&
+             data.role is string && (
+               data.role == 'OWNER' ||
+               data.role == 'SUPER_ADMIN' ||
+               data.role == 'ROOM_ADMIN' ||
+               data.role == 'MODERATOR' ||
+               data.role == 'SUPPORT' ||
+               data.role == 'MEMBER'
+             ) &&
+             data.permissions is list && data.permissions.size() <= 20 &&
+             (data.permissions.size() == 0 || data.permissions[0] is string) &&
+             data.assignedBy is string && data.assignedBy.size() >= 1 && data.assignedBy.size() <= 128 &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidMemberChatHistoryEntry(data) {
+      return data.entryId is string && isValidId(data.entryId) &&
+             data.userId is string && isValidId(data.userId) &&
+             data.roomId is string && isValidId(data.roomId) &&
+             data.roomName is string && data.roomName.size() >= 1 && data.roomName.size() <= 120 &&
+             data.messageText is string && data.messageText.size() >= 1 && data.messageText.size() <= 500 &&
+             data.activityType is string && (
+               data.activityType == 'MESSAGE' ||
+               data.activityType == 'JOIN_ROOM' ||
+               data.activityType == 'CREATE_ROOM' ||
+               data.activityType == 'LEAVE_ROOM'
+             ) &&
+             data.timestamp is timestamp && data.timestamp <= request.time;
+    }
+
+    function isValidRoomActiveMember(data) {
+      return data.userId is string && isValidId(data.userId) &&
+             data.roomId is string && isValidId(data.roomId) &&
+             data.memberName is string && data.memberName.size() >= 1 && data.memberName.size() <= 80 &&
+             data.avatarEmoji is string && data.avatarEmoji.size() >= 1 && data.avatarEmoji.size() <= 16 &&
+             data.roleBadge is string && data.roleBadge.size() >= 1 && data.roleBadge.size() <= 40 &&
+             data.supabaseLinked is bool &&
+             data.joinedAt is timestamp && data.joinedAt <= request.time;
+    }
+
+    function isValidVoiceRoomSeatDocument(data) {
+      return data.seatId is string && isValidId(data.seatId) &&
+             data.roomId is string && isValidId(data.roomId) &&
+             data.seatIndex is int && data.seatIndex >= 0 && data.seatIndex <= 7 &&
+             data.occupantUserId is string && data.occupantUserId.size() <= 128 &&
+             data.occupantMemberCode is string && data.occupantMemberCode.size() <= 32 &&
+             data.occupantName is string && data.occupantName.size() <= 80 &&
+             data.occupantEmoji is string && data.occupantEmoji.size() >= 1 && data.occupantEmoji.size() <= 16 &&
+             data.seatRole is string && (
+               data.seatRole == 'HOST' ||
+               data.seatRole == 'CO_HOST' ||
+               data.seatRole == 'SPEAKER' ||
+               data.seatRole == 'SEATED_MEMBER' ||
+               data.seatRole == 'EMPTY'
+             ) &&
+             data.isSpeaking is bool &&
+             data.isMuted is bool &&
+             data.hasPendingMicRequest is bool &&
+             data.isSeatLocked is bool &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidRoomMicRequestDocument(data) {
+      return data.requestId is string && isValidId(data.requestId) &&
+             data.roomId is string && isValidId(data.roomId) &&
+             data.userId is string && isValidId(data.userId) &&
+             data.memberIdCode is string && data.memberIdCode.size() >= 3 && data.memberIdCode.size() <= 32 &&
+             data.userName is string && data.userName.size() >= 1 && data.userName.size() <= 80 &&
+             data.userEmoji is string && data.userEmoji.size() >= 1 && data.userEmoji.size() <= 16 &&
+             data.queueNumber is int && data.queueNumber >= 1 &&
+             data.status is string && (
+               data.status == 'NONE' ||
+               data.status == 'PENDING' ||
+               data.status == 'APPROVED' ||
+               data.status == 'REJECTED' ||
+               data.status == 'MUTED_BY_HOST'
+             ) &&
+             data.requestedSeatIndex is int && data.requestedSeatIndex >= 0 && data.requestedSeatIndex <= 7 &&
+             data.timestamp is timestamp && data.timestamp <= request.time;
+    }
+
+    function isValidRoomChatMessageDocument(data) {
+      return data.messageId is string && isValidId(data.messageId) &&
+             data.roomId is string && isValidId(data.roomId) &&
+             data.senderId is string && isValidId(data.senderId) &&
+             data.senderMemberCode is string && data.senderMemberCode.size() >= 3 && data.senderMemberCode.size() <= 32 &&
+             data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 80 &&
+             data.senderEmoji is string && data.senderEmoji.size() >= 1 && data.senderEmoji.size() <= 16 &&
+             data.senderRoleBadge is string && data.senderRoleBadge.size() >= 1 && data.senderRoleBadge.size() <= 40 &&
+             data.messageText is string && data.messageText.size() >= 1 && data.messageText.size() <= 500 &&
+             data.timestamp is timestamp && data.timestamp <= request.time;
+    }
+
+    function isValidRoomPresenceEvent(data) {
+      return data.eventId is string && isValidId(data.eventId) &&
+             data.roomId is string && isValidId(data.roomId) &&
+             data.userId is string && isValidId(data.userId) &&
+             data.memberName is string && data.memberName.size() >= 1 && data.memberName.size() <= 80 &&
+             data.avatarEmoji is string && data.avatarEmoji.size() >= 1 && data.avatarEmoji.size() <= 16 &&
+             data.eventType is string && (data.eventType == 'JOIN' || data.eventType == 'LEAVE') &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidFadfadaPost(data) {
+      return data.postId is string && isValidId(data.postId) &&
+             data.authorId is string && isValidId(data.authorId) &&
+             (!('memberIdCode' in data) || (data.memberIdCode is string && data.memberIdCode.size() >= 3 && data.memberIdCode.size() <= 32)) &&
+             data.content is string && data.content.size() >= 1 && data.content.size() <= 1000 &&
+             data.moodTag is string && data.moodTag.size() >= 1 && data.moodTag.size() <= 50 &&
+             data.heartsCount is int && data.heartsCount >= 0 &&
+             data.timestamp is timestamp && data.timestamp <= request.time;
+    }
+
+    function isValidFadfadaAdminIdentity(data) {
+      return data.postId is string && isValidId(data.postId) &&
+             data.authorId is string && isValidId(data.authorId) &&
+             (!('memberIdCode' in data) || (data.memberIdCode is string && data.memberIdCode.size() >= 3 && data.memberIdCode.size() <= 32)) &&
+             data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 80 &&
+             data.authorEmail is string && data.authorEmail.size() >= 3 && data.authorEmail.size() <= 160 &&
+             data.timestamp is timestamp && data.timestamp <= request.time;
+    }
+
+    function isValidPushNotificationEvent(data) {
+      return data.notificationId is string && isValidId(data.notificationId) &&
+             data.senderId is string && isValidId(data.senderId) &&
+             data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 80 &&
+             data.recipientQuery is string && data.recipientQuery.size() >= 1 && data.recipientQuery.size() <= 160 &&
+             data.roomId is string && isValidId(data.roomId) &&
+             data.roomName is string && data.roomName.size() >= 1 && data.roomName.size() <= 120 &&
+             data.notificationType is string && (
+               data.notificationType == 'NEW_MESSAGE' ||
+               data.notificationType == 'ROOM_INVITE' ||
+               data.notificationType == 'FAVORITE_ROOM_LIVE' ||
+               data.notificationType == 'PRIVATE_INVITE' ||
+               data.notificationType == 'FRIEND_REQUEST' ||
+               data.notificationType == 'FRIEND_ACCEPTED' ||
+               data.notificationType == 'MIC_REQUEST' ||
+               data.notificationType == 'MIC_APPROVED' ||
+               data.notificationType == 'GIFT_RECEIVED' ||
+               data.notificationType == 'ADMIN_ALERT'
+             ) &&
+             data.messageBody is string && data.messageBody.size() >= 1 && data.messageBody.size() <= 500 &&
+             data.timestamp is timestamp && data.timestamp <= request.time;
+    }
+
+    function isValidPaymentReceipt(data) {
+      return data.receiptId is string && isValidId(data.receiptId) &&
+             data.userId is string && isValidId(data.userId) &&
+             data.memberName is string && data.memberName.size() >= 1 && data.memberName.size() <= 80 &&
+             data.planId is string && isValidId(data.planId) &&
+             data.planTitle is string && data.planTitle.size() >= 1 && data.planTitle.size() <= 100 &&
+             data.amountEgp is int && data.amountEgp > 0 &&
+             data.paymentMethod is string && (
+               data.paymentMethod == 'BANK_CARD' ||
+               data.paymentMethod == 'VODAFONE_CASH' ||
+               data.paymentMethod == 'INSTAPAY'
+             ) &&
+             data.transactionReference is string && data.transactionReference.size() >= 4 && data.transactionReference.size() <= 80 &&
+             data.verified == true &&
+             data.timestamp is timestamp && data.timestamp <= request.time;
+    }
+
+    function isValidRoomGiftTransactionDocument(data) {
+      return data.transactionId is string && isValidId(data.transactionId) &&
+             data.roomId is string && isValidId(data.roomId) &&
+             data.roomName is string && data.roomName.size() >= 1 && data.roomName.size() <= 120 &&
+             data.giftId is string && isValidId(data.giftId) &&
+             data.giftNameAr is string && data.giftNameAr.size() >= 1 && data.giftNameAr.size() <= 80 &&
+             data.giftEmoji is string && data.giftEmoji.size() >= 1 && data.giftEmoji.size() <= 16 &&
+             data.costCoins is int && data.costCoins >= 0 &&
+             data.quantity is int && data.quantity >= 1 && data.quantity <= 999 &&
+             data.senderId is string && isValidId(data.senderId) &&
+             data.senderMemberCode is string && data.senderMemberCode.size() >= 3 && data.senderMemberCode.size() <= 32 &&
+             data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 80 &&
+             data.recipientId is string && isValidId(data.recipientId) &&
+             data.recipientName is string && data.recipientName.size() >= 1 && data.recipientName.size() <= 80 &&
+             data.pkTeamSupported is string && (
+               data.pkTeamSupported == 'RED' ||
+               data.pkTeamSupported == 'BLUE' ||
+               data.pkTeamSupported == 'NONE'
+             ) &&
+             data.pkBonusPoints is int && data.pkBonusPoints >= 0 &&
+             data.timestamp is timestamp && data.timestamp <= request.time;
+    }
+
+    function isValidWebRtcSignalingDocument(data) {
+      return data.signalId is string && isValidId(data.signalId) &&
+             data.roomId is string && isValidId(data.roomId) &&
+             data.senderId is string && isValidId(data.senderId) &&
+             data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 80 &&
+             data.targetUserId is string && isValidId(data.targetUserId) &&
+             data.signalType is string && (
+               data.signalType == 'OFFER' ||
+               data.signalType == 'ANSWER' ||
+               data.signalType == 'ICE_CANDIDATE'
+             ) &&
+             data.sdp is string && data.sdp.size() <= 16000 &&
+             data.sdpMid is string && data.sdpMid.size() <= 128 &&
+             data.sdpMLineIndex is int && data.sdpMLineIndex >= -1 && data.sdpMLineIndex <= 32 &&
+             data.candidate is string && data.candidate.size() <= 4096 &&
+             data.sessionEpochMs is int && data.sessionEpochMs >= 0 &&
+             data.timestamp is timestamp && data.timestamp <= request.time;
+    }
+
+    // 4. Role-Based Access Control (RBAC) Collection (/user_roles/{userId})
+    match /user_roles/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+
+      // Owner (hamadanagy1979@gmail.com) can assign any role; regular users can only initialize their own MEMBER role
+      // or hamadanagy1979@gmail.com can initialize their own OWNER role.
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       incoming().userId == userId &&
+                       incoming().keys().hasAll(['userId', 'memberIdCode', 'displayName', 'role', 'permissions', 'assignedBy', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'memberIdCode', 'displayName', 'role', 'permissions', 'assignedBy', 'updatedAt']) &&
+                       isValidUserRoleAssignment(incoming()) &&
+                       (
+                         isSuperAdminOrOwner() ||
+                         (userId == request.auth.uid && incoming().role == 'MEMBER')
+                       );
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       isValidUserRoleAssignment(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       isSuperAdminOrOwner() &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['memberIdCode', 'displayName', 'role', 'permissions', 'assignedBy', 'updatedAt']);
+
+      allow delete: if isSignedIn() && isValidId(userId) && isOwnerRole();
+    }
+
+    // 5. Chat Rooms Collection (/chat_rooms/{roomId})
+    match /chat_rooms/{roomId} {
+      allow get: if isSignedIn() && isValidId(roomId);
+
+      // Allow all signed-in members to list active chat rooms so rooms are visible to everyone
+      allow list: if isSignedIn();
+
+      allow create: if isSignedIn() &&
+                       isValidId(roomId) &&
+                       incoming().keys().hasAll(['roomId', 'roomName', 'creatorId', 'timestamp']) &&
+                       incoming().keys().hasOnly(['roomId', 'roomName', 'creatorId', 'timestamp']) &&
+                       incoming().roomId == roomId &&
+                       incoming().creatorId == request.auth.uid &&
+                       isValidChatRoomMetadata(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(roomId) &&
+                       isValidChatRoomMetadata(incoming()) &&
+                       incoming().roomId == existing().roomId &&
+                       incoming().creatorId == existing().creatorId &&
+                       incoming().timestamp == existing().timestamp &&
+                       (
+                         isAdmin() ||
+                         (
+                           existing().creatorId == request.auth.uid &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['roomName'])
+                         )
+                       );
+
+      allow delete: if isSignedIn() &&
+                       isValidId(roomId) &&
+                       (existing().creatorId == request.auth.uid || isAdmin());
+
+      // 5a. Active Members Subcollection (/chat_rooms/{roomId}/active_members/{memberId})
+      match /active_members/{memberId} {
+        allow get: if isSignedIn() && isValidId(roomId) && isValidId(memberId) && existing().roomId == roomId;
+        allow list: if isSignedIn() && existing().roomId == roomId;
+
+        allow create: if isSignedIn() &&
+                         isValidId(roomId) &&
+                         isValidId(memberId) &&
+                         memberId == request.auth.uid &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().roomId == roomId &&
+                         incoming().keys().hasAll(['userId', 'roomId', 'memberName', 'avatarEmoji', 'roleBadge', 'supabaseLinked', 'joinedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'roomId', 'memberName', 'avatarEmoji', 'roleBadge', 'supabaseLinked', 'joinedAt']) &&
+                         isValidRoomActiveMember(incoming());
+
+        allow update: if isSignedIn() &&
+                         isValidId(roomId) &&
+                         isValidId(memberId) &&
+                         memberId == request.auth.uid &&
+                         isValidRoomActiveMember(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().roomId == existing().roomId &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['userId', 'roomId', 'memberName', 'avatarEmoji', 'roleBadge', 'supabaseLinked', 'joinedAt']);
+
+        allow delete: if isSignedIn() &&
+                         isValidId(roomId) &&
+                         isValidId(memberId) &&
+                         (memberId == request.auth.uid || isAdmin());
+      }
+
+      // 5b. Live 8-Seat Voice Stage Subcollection (/chat_rooms/{roomId}/seats/{seatId})
+      match /seats/{seatId} {
+        allow get: if isSignedIn() && isValidId(roomId) && isValidId(seatId) && existing().roomId == roomId;
+        allow list: if isSignedIn() && existing().roomId == roomId;
+
+        allow create: if isSignedIn() &&
+                         isValidId(roomId) &&
+                         isValidId(seatId) &&
+                         incoming().seatId == seatId &&
+                         incoming().roomId == roomId &&
+                         incoming().keys().hasAll(['seatId', 'roomId', 'seatIndex', 'occupantUserId', 'occupantMemberCode', 'occupantName', 'occupantEmoji', 'seatRole', 'isSpeaking', 'isMuted', 'hasPendingMicRequest', 'isSeatLocked', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['seatId', 'roomId', 'seatIndex', 'occupantUserId', 'occupantMemberCode', 'occupantName', 'occupantEmoji', 'seatRole', 'isSpeaking', 'isMuted', 'hasPendingMicRequest', 'isSeatLocked', 'updatedAt']) &&
+                         isValidVoiceRoomSeatDocument(incoming()) &&
+                         (incoming().occupantUserId == request.auth.uid || incoming().occupantUserId == '' || isAdmin());
+
+        allow update: if isSignedIn() &&
+                         isValidId(roomId) &&
+                         isValidId(seatId) &&
+                         isValidVoiceRoomSeatDocument(incoming()) &&
+                         incoming().seatId == existing().seatId &&
+                         incoming().roomId == existing().roomId &&
+                         (
+                           incoming().occupantUserId == request.auth.uid ||
+                           existing().occupantUserId == request.auth.uid ||
+                           existing().occupantUserId == '' ||
+                           isAdmin()
+                         ) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['occupantUserId', 'occupantMemberCode', 'occupantName', 'occupantEmoji', 'seatRole', 'isSpeaking', 'isMuted', 'hasPendingMicRequest', 'isSeatLocked', 'updatedAt']);
+
+        allow delete: if isSignedIn() && isValidId(roomId) && isValidId(seatId) && (existing().occupantUserId == request.auth.uid || isAdmin());
+      }
+
+      // 5c. Live Mic Requests Queue Subcollection (/chat_rooms/{roomId}/mic_requests/{requestId})
+      match /mic_requests/{requestId} {
+        allow get: if isSignedIn() && isValidId(roomId) && isValidId(requestId) && existing().roomId == roomId;
+        allow list: if isSignedIn() && existing().roomId == roomId;
+
+        allow create: if isSignedIn() &&
+                         isValidId(roomId) &&
+                         isValidId(requestId) &&
+                         incoming().requestId == requestId &&
+                         incoming().roomId == roomId &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['requestId', 'roomId', 'userId', 'memberIdCode', 'userName', 'userEmoji', 'queueNumber', 'status', 'requestedSeatIndex', 'timestamp']) &&
+                         incoming().keys().hasOnly(['requestId', 'roomId', 'userId', 'memberIdCode', 'userName', 'userEmoji', 'queueNumber', 'status', 'requestedSeatIndex', 'timestamp']) &&
+                         isValidRoomMicRequestDocument(incoming());
+
+        allow update: if isSignedIn() &&
+                         isValidId(roomId) &&
+                         isValidId(requestId) &&
+                         isValidRoomMicRequestDocument(incoming()) &&
+                         incoming().requestId == existing().requestId &&
+                         incoming().roomId == existing().roomId &&
+                         incoming().userId == existing().userId &&
+                         (existing().userId == request.auth.uid || isAdmin() || get(/databases/$(database)/documents/chat_rooms/$(roomId)).data.creatorId == request.auth.uid) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'requestedSeatIndex', 'queueNumber', 'timestamp']);
+
+        allow delete: if isSignedIn() &&
+                         isValidId(roomId) &&
+                         isValidId(requestId) &&
+                         (existing().userId == request.auth.uid || isAdmin() || get(/databases/$(database)/documents/chat_rooms/$(roomId)).data.creatorId == request.auth.uid);
+      }
+
+      // 5d. Live Room Chat Messages Subcollection (/chat_rooms/{roomId}/room_messages/{messageId})
+      match /room_messages/{messageId} {
+        allow get: if isSignedIn() && isValidId(roomId) && isValidId(messageId) && existing().roomId == roomId;
+        allow list: if isSignedIn() && existing().roomId == roomId;
+
+        allow create: if isSignedIn() &&
+                         isValidId(roomId) &&
+                         isValidId(messageId) &&
+                         incoming().messageId == messageId &&
+                         incoming().roomId == roomId &&
+                         incoming().senderId == request.auth.uid &&
+                         incoming().keys().hasAll(['messageId', 'roomId', 'senderId', 'senderMemberCode', 'senderName', 'senderEmoji', 'senderRoleBadge', 'messageText', 'timestamp']) &&
+                         incoming().keys().hasOnly(['messageId', 'roomId', 'senderId', 'senderMemberCode', 'senderName', 'senderEmoji', 'senderRoleBadge', 'messageText', 'timestamp']) &&
+                         isValidRoomChatMessageDocument(incoming());
+
+        allow update: if false;
+        allow delete: if isSignedIn() &&
+                         isValidId(roomId) &&
+                         isValidId(messageId) &&
+                         (existing().senderId == request.auth.uid || isAdmin() || get(/databases/$(database)/documents/chat_rooms/$(roomId)).data.creatorId == request.auth.uid);
+      }
+
+      // 5e. Room Join/Leave Presence Events Subcollection (/chat_rooms/{roomId}/presence_events/{eventId})
+      match /presence_events/{eventId} {
+        allow get: if isSignedIn() && isValidId(roomId) && isValidId(eventId) && existing().roomId == roomId;
+        allow list: if isSignedIn() && existing().roomId == roomId;
+
+        allow create: if isSignedIn() &&
+                         isValidId(roomId) &&
+                         isValidId(eventId) &&
+                         incoming().eventId == eventId &&
+                         incoming().roomId == roomId &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['eventId', 'roomId', 'userId', 'memberName', 'avatarEmoji', 'eventType', 'createdAt']) &&
+                         incoming().keys().hasOnly(['eventId', 'roomId', 'userId', 'memberName', 'avatarEmoji', 'eventType', 'createdAt']) &&
+                         isValidRoomPresenceEvent(incoming());
+
+        allow update, delete: if false;
+      }
+
+      // 5f. Room Interactive Gift Transactions Subcollection (/chat_rooms/{roomId}/room_gifts/{transactionId})
+      match /room_gifts/{transactionId} {
+        allow get: if isSignedIn() && isValidId(roomId) && isValidId(transactionId) && existing().roomId == roomId;
+        allow list: if isSignedIn() && existing().roomId == roomId;
+
+        allow create: if isSignedIn() &&
+                         isValidId(roomId) &&
+                         isValidId(transactionId) &&
+                         incoming().transactionId == transactionId &&
+                         incoming().roomId == roomId &&
+                         incoming().senderId == request.auth.uid &&
+                         incoming().keys().hasAll(['transactionId', 'roomId', 'roomName', 'giftId', 'giftNameAr', 'giftEmoji', 'costCoins', 'quantity', 'senderId', 'senderMemberCode', 'senderName', 'recipientId', 'recipientName', 'pkTeamSupported', 'pkBonusPoints', 'timestamp']) &&
+                         incoming().keys().hasOnly(['transactionId', 'roomId', 'roomName', 'giftId', 'giftNameAr', 'giftEmoji', 'costCoins', 'quantity', 'senderId', 'senderMemberCode', 'senderName', 'recipientId', 'recipientName', 'pkTeamSupported', 'pkBonusPoints', 'timestamp']) &&
+                         isValidRoomGiftTransactionDocument(incoming());
+
+        allow update: if false;
+        allow delete: if isSignedIn() &&
+                         isValidId(roomId) &&
+                         isValidId(transactionId) &&
+                         (existing().senderId == request.auth.uid || isAdmin());
+      }
+
+      // 5g. WebRTC Native Audio Signaling Subcollection (/chat_rooms/{roomId}/webrtc_signals/{signalId})
+      match /webrtc_signals/{signalId} {
+        allow get: if isSignedIn() &&
+                      isValidId(roomId) &&
+                      isValidId(signalId) &&
+                      existing().roomId == roomId &&
+                      (existing().targetUserId == request.auth.uid || existing().senderId == request.auth.uid || isAdmin());
+
+        allow list: if isSignedIn() &&
+                       existing().roomId == roomId &&
+                       (existing().targetUserId == request.auth.uid || existing().senderId == request.auth.uid || isAdmin());
+
+        allow create: if isSignedIn() &&
+                         isValidId(roomId) &&
+                         isValidId(signalId) &&
+                         incoming().signalId == signalId &&
+                         incoming().roomId == roomId &&
+                         incoming().senderId == request.auth.uid &&
+                         incoming().keys().hasAll(['signalId', 'roomId', 'senderId', 'senderName', 'targetUserId', 'signalType', 'sdp', 'sdpMid', 'sdpMLineIndex', 'candidate', 'sessionEpochMs', 'timestamp']) &&
+                         incoming().keys().hasOnly(['signalId', 'roomId', 'senderId', 'senderName', 'targetUserId', 'signalType', 'sdp', 'sdpMid', 'sdpMLineIndex', 'candidate', 'sessionEpochMs', 'timestamp']) &&
+                         isValidWebRtcSignalingDocument(incoming());
+
+        allow update: if false;
+        allow delete: if isSignedIn() &&
+                         isValidId(roomId) &&
+                         isValidId(signalId) &&
+                         (existing().senderId == request.auth.uid || existing().targetUserId == request.auth.uid || isAdmin());
+      }
+    }
+
+    // 6. Public Member Profiles Linked to Supabase (/members/{userId})
+    // Contains NO private email so all signed-in members can discover online members and their memberIdCode
+    match /members/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (userId == request.auth.uid || existing().supabaseSynced == true || isAdmin());
+      allow list: if isSignedIn() && (existing().userId == request.auth.uid || existing().supabaseSynced == true || isAdmin());
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       userId == request.auth.uid &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['userId', 'displayName', 'avatarEmoji', 'roleBadge', 'supabaseSynced', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'memberIdCode', 'displayName', 'avatarEmoji', 'avatarUri', 'bio', 'roleBadge', 'roomsCreatedCount', 'roomsJoinedCount', 'messagesSentCount', 'supabaseSynced', 'updatedAt']) &&
+                       isValidMemberProfile(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       userId == request.auth.uid &&
+                       isValidMemberProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['userId', 'memberIdCode', 'displayName', 'avatarEmoji', 'avatarUri', 'bio', 'roleBadge', 'roomsCreatedCount', 'roomsJoinedCount', 'messagesSentCount', 'supabaseSynced', 'updatedAt']);
+
+      allow delete: if isSignedIn() && isValidId(userId) && (userId == request.auth.uid || isAdmin());
+
+      // 6a. Member Personal Chat & Room History (/members/{userId}/chat_history/{entryId})
+      match /chat_history/{entryId} {
+        allow get: if isSignedIn() && isValidId(userId) && isValidId(entryId) && (userId == request.auth.uid || isAdmin());
+        allow list: if isSignedIn() && (userId == request.auth.uid || isAdmin());
+
+        allow create: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(entryId) &&
+                         userId == request.auth.uid &&
+                         incoming().entryId == entryId &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['entryId', 'userId', 'roomId', 'roomName', 'messageText', 'activityType', 'timestamp']) &&
+                         incoming().keys().hasOnly(['entryId', 'userId', 'roomId', 'roomName', 'messageText', 'activityType', 'timestamp']) &&
+                         isValidMemberChatHistoryEntry(incoming());
+
+        allow update: if false;
+        allow delete: if isSignedIn() && isValidId(userId) && isValidId(entryId) && (userId == request.auth.uid || isAdmin());
+      }
+    }
+
+    // 7. Anonymous Fadfada (Venting) Public Posts with Unique Member ID Code (/fadfada_posts/{postId})
+    match /fadfada_posts/{postId} {
+      allow get: if isSignedIn() && isValidId(postId);
+      allow list: if isSignedIn();
+
+      allow create: if isSignedIn() &&
+                       isValidId(postId) &&
+                       incoming().postId == postId &&
+                       incoming().authorId == request.auth.uid &&
+                       incoming().heartsCount == 0 &&
+                       incoming().keys().hasAll(['postId', 'authorId', 'content', 'moodTag', 'heartsCount', 'timestamp']) &&
+                       incoming().keys().hasOnly(['postId', 'authorId', 'memberIdCode', 'content', 'moodTag', 'heartsCount', 'timestamp']) &&
+                       isValidFadfadaPost(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(postId) &&
+                       isValidFadfadaPost(incoming()) &&
+                       incoming().postId == existing().postId &&
+                       incoming().authorId == existing().authorId &&
+                       incoming().content == existing().content &&
+                       incoming().moodTag == existing().moodTag &&
+                       incoming().timestamp == existing().timestamp &&
+                       incoming().heartsCount == existing().heartsCount + 1 &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['heartsCount']);
+
+      allow delete: if isSignedIn() &&
+                       isValidId(postId) &&
+                       (existing().authorId == request.auth.uid || isAdmin());
+    }
+
+    // 8. Admin-Only Fadfada Author Identity Records (/fadfada_admin_identities/{postId})
+    match /fadfada_admin_identities/{postId} {
+      allow get: if isAdmin() && isValidId(postId);
+      allow list: if isAdmin();
+
+      allow create: if isSignedIn() &&
+                       isValidId(postId) &&
+                       incoming().postId == postId &&
+                       incoming().authorId == request.auth.uid &&
+                       incoming().keys().hasAll(['postId', 'authorId', 'authorName', 'authorEmail', 'timestamp']) &&
+                       incoming().keys().hasOnly(['postId', 'authorId', 'memberIdCode', 'authorName', 'authorEmail', 'timestamp']) &&
+                       isValidFadfadaAdminIdentity(incoming());
+
+      allow update: if false;
+      allow delete: if isAdmin() && isValidId(postId);
+    }
+
+    // 9. Push Notifications (/push_notifications/{notificationId})
+    match /push_notifications/{notificationId} {
+      allow get: if isSignedIn() && isValidId(notificationId);
+      allow list: if isSignedIn();
+
+      allow create: if isSignedIn() &&
+                       isValidId(notificationId) &&
+                       incoming().notificationId == notificationId &&
+                       incoming().senderId == request.auth.uid &&
+                       incoming().keys().hasAll(['notificationId', 'senderId', 'senderName', 'recipientQuery', 'roomId', 'roomName', 'notificationType', 'messageBody', 'timestamp']) &&
+                       incoming().keys().hasOnly(['notificationId', 'senderId', 'senderName', 'recipientQuery', 'roomId', 'roomName', 'notificationType', 'messageBody', 'timestamp']) &&
+                       isValidPushNotificationEvent(incoming());
+
+      allow update: if false;
+      allow delete: if isSignedIn() &&
+                       isValidId(notificationId) &&
+                       (existing().senderId == request.auth.uid || isAdmin());
+    }
+
+    // 10. Verified Payment Receipts (/payment_receipts/{receiptId})
+    match /payment_receipts/{receiptId} {
+      allow get: if isSignedIn() &&
+                    isValidId(receiptId) &&
+                    (existing().userId == request.auth.uid || isAdmin());
+
+      allow list: if isSignedIn() &&
+                     (existing().userId == request.auth.uid || isAdmin());
+
+      allow create: if isSignedIn() &&
+                       isValidId(receiptId) &&
+                       incoming().receiptId == receiptId &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['receiptId', 'userId', 'memberName', 'planId', 'planTitle', 'amountEgp', 'paymentMethod', 'transactionReference', 'verified', 'timestamp']) &&
+                       incoming().keys().hasOnly(['receiptId', 'userId', 'memberName', 'planId', 'planTitle', 'amountEgp', 'paymentMethod', 'transactionReference', 'verified', 'timestamp']) &&
+                       isValidPaymentReceipt(incoming());
+
+      allow update, delete: if false;
+    }
+
+    // 11. Global Gift Transactions Ledger (/gift_transactions/{transactionId})
+    match /gift_transactions/{transactionId} {
+      allow get: if isSignedIn() && isValidId(transactionId);
+      allow list: if isSignedIn();
+
+      allow create: if isSignedIn() &&
+                       isValidId(transactionId) &&
+                       incoming().transactionId == transactionId &&
+                       incoming().senderId == request.auth.uid &&
+                       incoming().keys().hasAll(['transactionId', 'roomId', 'roomName', 'giftId', 'giftNameAr', 'giftEmoji', 'costCoins', 'quantity', 'senderId', 'senderMemberCode', 'senderName', 'recipientId', 'recipientName', 'pkTeamSupported', 'pkBonusPoints', 'timestamp']) &&
+                       incoming().keys().hasOnly(['transactionId', 'roomId', 'roomName', 'giftId', 'giftNameAr', 'giftEmoji', 'costCoins', 'quantity', 'senderId', 'senderMemberCode', 'senderName', 'recipientId', 'recipientName', 'pkTeamSupported', 'pkBonusPoints', 'timestamp']) &&
+                       isValidRoomGiftTransactionDocument(incoming());
+
+      allow update: if false;
+      allow delete: if isSignedIn() &&
+                       isValidId(transactionId) &&
+                       (existing().senderId == request.auth.uid || isAdmin());
+    }
+
+  }
+}
