@@ -718,7 +718,8 @@ class ChatRoomRepository(
         creatorId: String? = null,
         roomPassword: String = "",
         roomCategory: String = "GENERAL",
-        customRoomId: String? = null
+        customRoomId: String? = null,
+        ambientThemeId: String = WanasRoomAmbientTheme.ROYAL_NIGHT.id
     ): Result<ChatRoomMetadata> = runCatching {
         val trimmedName = roomName.trim().take(120)
         require(trimmedName.isNotEmpty()) { "يرجى إدخال اسم الغرفة" }
@@ -731,6 +732,7 @@ class ChatRoomRepository(
         val cleanPass = roomPassword.trim()
         val resolvedCat = roomCategory.trim().ifBlank { "GENERAL" }
         val resolvedFilter = WanasRoomCategoryFilter.resolveDisplayFilter(resolvedCat)
+        val resolvedTheme = WanasRoomAmbientTheme.resolveTheme(ambientThemeId)
 
         val room = ChatRoomMetadata(
             roomId = roomId,
@@ -740,7 +742,8 @@ class ChatRoomRepository(
             roomCategory = resolvedFilter.id,
             roomTopicTag = "${resolvedFilter.emoji} ${resolvedFilter.labelAr}",
             roomPassword = cleanPass,
-            isPasswordProtected = cleanPass.isNotEmpty()
+            isPasswordProtected = cleanPass.isNotEmpty(),
+            ambientThemeId = resolvedTheme.id
         )
 
         // Publish immediately to Supabase Realtime so all users see it right away
@@ -751,7 +754,8 @@ class ChatRoomRepository(
                 "roomId" to roomId,
                 "roomName" to trimmedName,
                 "creatorId" to resolvedCreator,
-                "timestamp" to FieldValue.serverTimestamp()
+                "timestamp" to FieldValue.serverTimestamp(),
+                "ambientThemeId" to resolvedTheme.id
             )
             roomsCollection.document(roomId).set(firestoreDoc).await()
         }
@@ -926,6 +930,97 @@ class ChatRoomRepository(
                 .await()
         }
         joinEvent
+    }
+
+    /**
+     * Adds an authenticated user or invited member to an active voice chat room in Firestore
+     * (`/chat_rooms/{roomId}/active_members/{memberId}`) and logs a `JOIN` presence event
+     * (`/chat_rooms/{roomId}/presence_events/{eventId}`).
+     */
+    suspend fun addUserToActiveRoomInFirestore(
+        roomId: String,
+        targetUserId: String,
+        memberName: String,
+        avatarEmoji: String = "🎙️",
+        roleBadge: String = "عضو الغرفة 🎙️",
+        supabaseLinked: Boolean = true
+    ): Result<RoomActiveMember> = runCatching {
+        val currentUser = runCatching { Firebase.auth.currentUser }.getOrNull()
+        val safeRoomId = roomId.replace(Regex("[^a-zA-Z0-9_\\-]"), "_").take(64)
+        require(safeRoomId.isNotEmpty()) { "معرف الغرفة غير صالح" }
+        val cleanName = memberName.trim().ifEmpty { "عضو وَنَس" }.take(80)
+        val rawId = targetUserId.trim().ifEmpty {
+            "usr_${cleanName.hashCode().let { if (it < 0) -it else it }}"
+        }
+        val safeMemberId = rawId.replace(Regex("[^a-zA-Z0-9_\\-]"), "_").take(64).ifEmpty { "wanas_user" }
+        val cleanEmoji = avatarEmoji.trim().ifEmpty { "🎙️" }.take(16)
+        val cleanBadge = roleBadge.trim().ifEmpty { "عضو الغرفة 🎙️" }.take(40)
+        val now = Timestamp.now()
+
+        val activeMember = RoomActiveMember(
+            userId = safeMemberId,
+            roomId = safeRoomId,
+            memberName = cleanName,
+            avatarEmoji = cleanEmoji,
+            roleBadge = cleanBadge,
+            supabaseLinked = supabaseLinked,
+            joinedAt = now
+        )
+
+        if (currentUser != null && !currentUser.isAnonymous) {
+            val activeMemberDoc = mapOf(
+                "userId" to safeMemberId,
+                "roomId" to safeRoomId,
+                "memberName" to cleanName,
+                "avatarEmoji" to cleanEmoji,
+                "roleBadge" to cleanBadge,
+                "supabaseLinked" to supabaseLinked,
+                "joinedAt" to FieldValue.serverTimestamp()
+            )
+            roomsCollection.document(safeRoomId)
+                .collection("active_members")
+                .document(safeMemberId)
+                .set(activeMemberDoc)
+                .await()
+
+            if (safeMemberId == currentUser.uid) {
+                val eventId = "join_${UUID.randomUUID().toString().replace("-", "").take(16)}"
+                val joinEventDoc = mapOf(
+                    "eventId" to eventId,
+                    "roomId" to safeRoomId,
+                    "userId" to currentUser.uid,
+                    "memberName" to cleanName,
+                    "avatarEmoji" to cleanEmoji,
+                    "eventType" to "JOIN",
+                    "createdAt" to FieldValue.serverTimestamp()
+                )
+                roomsCollection.document(safeRoomId)
+                    .collection("presence_events")
+                    .document(eventId)
+                    .set(joinEventDoc)
+                    .await()
+            }
+        }
+        activeMember
+    }
+
+    /**
+     * Removes a user from an active voice chat room in Firestore (`/chat_rooms/{roomId}/active_members/{memberId}`).
+     */
+    suspend fun removeUserFromActiveRoomInFirestore(
+        roomId: String,
+        targetUserId: String
+    ): Result<Unit> = runCatching {
+        val currentUser = runCatching { Firebase.auth.currentUser }.getOrNull()
+        val safeRoomId = roomId.replace(Regex("[^a-zA-Z0-9_\\-]"), "_").take(64)
+        val safeMemberId = targetUserId.replace(Regex("[^a-zA-Z0-9_\\-]"), "_").take(64)
+        if (currentUser != null && !currentUser.isAnonymous && safeRoomId.isNotEmpty() && safeMemberId.isNotEmpty()) {
+            roomsCollection.document(safeRoomId)
+                .collection("active_members")
+                .document(safeMemberId)
+                .delete()
+                .await()
+        }
     }
 
     suspend fun leaveRoom(

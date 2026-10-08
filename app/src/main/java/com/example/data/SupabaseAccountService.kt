@@ -625,6 +625,7 @@ class SupabaseAccountService(private val context: Context? = null) {
             put("room_password", room.roomPassword)
             put("is_password_protected", room.hasPassword)
             put("room_category", room.roomCategory)
+            put("ambient_theme_id", room.ambientThemeId)
             put("timestamp_epoch_ms", room.timestamp.toDate().time)
         }
         val endpoint = "$supabaseUrl/rest/v1/chat_rooms?on_conflict=room_id"
@@ -778,6 +779,7 @@ class SupabaseAccountService(private val context: Context? = null) {
                 val pass = obj.optString("room_password", "")
                 val category = obj.optString("room_category", "GENERAL").ifBlank { "GENERAL" }
                 val filterMeta = WanasRoomCategoryFilter.resolveDisplayFilter(category)
+                val themeMeta = WanasRoomAmbientTheme.resolveTheme(obj.optString("ambient_theme_id", "ROYAL_NIGHT"))
                 val epoch = obj.optLong("timestamp_epoch_ms", System.currentTimeMillis())
                 list.add(
                     ChatRoomMetadata(
@@ -788,7 +790,8 @@ class SupabaseAccountService(private val context: Context? = null) {
                         roomPassword = pass,
                         isPasswordProtected = obj.optBoolean("is_password_protected", pass.isNotBlank()),
                         roomCategory = filterMeta.id,
-                        roomTopicTag = "${filterMeta.emoji} ${filterMeta.labelAr}"
+                        roomTopicTag = "${filterMeta.emoji} ${filterMeta.labelAr}",
+                        ambientThemeId = themeMeta.id
                     )
                 )
             }

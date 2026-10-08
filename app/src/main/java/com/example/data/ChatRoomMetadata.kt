@@ -65,7 +65,8 @@ data class ChatRoomMetadata(
     val activeSpeakersCount: Int = 2,
     val activeVoiceChallengeQuestion: String = "",
     val activeSoundEffectBanner: String = "",
-    val isRoomLockedByAdmin: Boolean = false
+    val isRoomLockedByAdmin: Boolean = false,
+    val ambientThemeId: String = "ROYAL_NIGHT"
 ) {
     val timestampMillis: Long
         get() = timestamp.toDate().time

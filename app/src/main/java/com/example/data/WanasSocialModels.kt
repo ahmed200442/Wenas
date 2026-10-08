@@ -240,6 +240,113 @@ enum class WanasRoomCategoryFilter(
 }
 
 /**
+ * Ambient background themes selectable by room creators and hosts (e.g., 'Coffee Shop', 'Rainy Night')
+ * that dynamically change the room's background UI color scheme, card surfaces, and stage accents.
+ */
+enum class WanasRoomAmbientTheme(
+    val id: String,
+    val titleEn: String,
+    val titleAr: String,
+    val emoji: String,
+    val vibeSubtitleAr: String,
+    val gradientStartHex: Long,
+    val gradientMidHex: Long,
+    val gradientEndHex: Long,
+    val cardSurfaceHex: Long,
+    val stageSurfaceHex: Long,
+    val accentHex: Long
+) {
+    ROYAL_NIGHT(
+        id = "ROYAL_NIGHT",
+        titleEn = "Royal Night",
+        titleAr = "ليلة ملكية (Royal Night)",
+        emoji = "👑",
+        vibeSubtitleAr = "فخامة بنفسجية وذهبية لسهرة وَنَس",
+        gradientStartHex = 0xFF0E0922,
+        gradientMidHex = 0xFF171033,
+        gradientEndHex = 0xFF241346,
+        cardSurfaceHex = 0xFF1E1140,
+        stageSurfaceHex = 0xFF140B2E,
+        accentHex = 0xFFFFC857
+    ),
+    COFFEE_SHOP(
+        id = "COFFEE_SHOP",
+        titleEn = "Coffee Shop",
+        titleAr = "مقهى دافئ (Coffee Shop)",
+        emoji = "☕",
+        vibeSubtitleAr = "أجواء كافيه كلاسيكية دافئة برائحة القهوة",
+        gradientStartHex = 0xFF23140D,
+        gradientMidHex = 0xFF382015,
+        gradientEndHex = 0xFF4E2D1E,
+        cardSurfaceHex = 0xFF331D13,
+        stageSurfaceHex = 0xFF26150E,
+        accentHex = 0xFFF59E0B
+    ),
+    RAINY_NIGHT(
+        id = "RAINY_NIGHT",
+        titleEn = "Rainy Night",
+        titleAr = "ليلة ممطرة (Rainy Night)",
+        emoji = "🌧️",
+        vibeSubtitleAr = "هدوء المطر الليلي وألوان النيل الداكنة",
+        gradientStartHex = 0xFF091526,
+        gradientMidHex = 0xFF112640,
+        gradientEndHex = 0xFF1A365D,
+        cardSurfaceHex = 0xFF132842,
+        stageSurfaceHex = 0xFF0C1B2E,
+        accentHex = 0xFF38BDF8
+    ),
+    NEON_LOUNGE(
+        id = "NEON_LOUNGE",
+        titleEn = "Neon Lounge",
+        titleAr = "صالون نيون (Neon Lounge)",
+        emoji = "🌆",
+        vibeSubtitleAr = "إضاءة نيون عصرية نابضة بالحياة",
+        gradientStartHex = 0xFF1A0926,
+        gradientMidHex = 0xFF2E1042,
+        gradientEndHex = 0xFF4A154B,
+        cardSurfaceHex = 0xFF2B0F3E,
+        stageSurfaceHex = 0xFF1D092B,
+        accentHex = 0xFFF472B6
+    ),
+    DESERT_CAMPFIRE(
+        id = "DESERT_CAMPFIRE",
+        titleEn = "Campfire Oasis",
+        titleAr = "سمر الصحراء (Campfire Oasis)",
+        emoji = "🔥",
+        vibeSubtitleAr = "دفء نيران السمر تحت نجوم السماء",
+        gradientStartHex = 0xFF240F0B,
+        gradientMidHex = 0xFF3B1810,
+        gradientEndHex = 0xFF522214,
+        cardSurfaceHex = 0xFF33150E,
+        stageSurfaceHex = 0xFF220D09,
+        accentHex = 0xFFFB923C
+    ),
+    FOREST_BREEZE(
+        id = "FOREST_BREEZE",
+        titleEn = "Forest Breeze",
+        titleAr = "نسيم الطبيعة (Forest Breeze)",
+        emoji = "🌲",
+        vibeSubtitleAr = "استرخاء الطبيعة الخضراء والهدوء النفسي",
+        gradientStartHex = 0xFF071F18,
+        gradientMidHex = 0xFF0D3328,
+        gradientEndHex = 0xFF14493A,
+        cardSurfaceHex = 0xFF0F382C,
+        stageSurfaceHex = 0xFF09241C,
+        accentHex = 0xFF34D399
+    );
+
+    companion object {
+        fun resolveTheme(themeId: String?): WanasRoomAmbientTheme {
+            if (themeId.isNullOrBlank()) return ROYAL_NIGHT
+            return entries.find {
+                it.id.equals(themeId, ignoreCase = true) ||
+                    it.titleEn.equals(themeId, ignoreCase = true)
+            } ?: ROYAL_NIGHT
+        }
+    }
+}
+
+/**
  * Sound effect item inside active voice rooms.
  */
 data class RoomStageSoundEffect(
@@ -267,10 +374,10 @@ data class WanasAdminDashboardStats(
     val avgRoomDurationMinutes: Double = 42.5,
     val completedSessionsRatePercent: Int = 89,
     val totalActiveRooms: Int = 8,
-    val activeSpeakersCountNow: Int = 21,
+    val activeSpeakersCountNow: Int = 1,
     val topActiveRoomName: String = "🌙 سهرة مصرية — الناس للناس",
-    val topActiveMemberName: String = "أحمد المصري 🌟",
-    val activeHostsCount: Int = 19,
+    val topActiveMemberName: String = "عضو ونس",
+    val activeHostsCount: Int = 1,
     val coinsSoldTotal: Int = 64500,
     val coinsGrantedTotal: Int = 4200,
     val coinsSpentTotal: Int = 38900,
@@ -600,9 +707,9 @@ object WanasCatalogData {
             clanNameAr = "عائلة ملوك السهرة 👑",
             badgeEmoji = "🦁",
             mottoAr = "الجدعنة والونس وأقوى سهرات مصرية",
-            leaderName = "أحمد المصري 🌟",
-            membersCount = 48,
-            weeklyActivityPoints = 14850,
+            leaderName = "مؤسس العائلة 👑",
+            membersCount = 1,
+            weeklyActivityPoints = 500,
             officialRoomId = "room_wanas_egypt_1"
         ),
         WanasFamilyClan(
@@ -610,9 +717,9 @@ object WanasCatalogData {
             clanNameAr = "قبيلة نجوم العرب ✨",
             badgeEmoji = "🦅",
             mottoAr = "قلوب صافية وصحبة راقية من كل مكان",
-            leaderName = "سارة محمد 🌸",
-            membersCount = 39,
-            weeklyActivityPoints = 12300,
+            leaderName = "قائد القبيلة ✨",
+            membersCount = 1,
+            weeklyActivityPoints = 500,
             officialRoomId = "room_wanas_laugh_2"
         ),
         WanasFamilyClan(
@@ -620,9 +727,9 @@ object WanasCatalogData {
             clanNameAr = "تحالف أبطال الـ PK ⚔️",
             badgeEmoji = "🔥",
             mottoAr = "ملوك التحديات والمسابقات الصوتية المباشرة",
-            leaderName = "كريم عادل ⚡",
-            membersCount = 31,
-            weeklyActivityPoints = 9940,
+            leaderName = "قائد التحالف ⚡",
+            membersCount = 1,
+            weeklyActivityPoints = 500,
             officialRoomId = "room_wanas_games_3"
         )
     )

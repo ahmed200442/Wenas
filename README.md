@@ -4,16 +4,17 @@
 
 ---
 
-## 📲 تحميل أحدث نسخة من التطبيق (APK — النسخة 3.1 مع WebRTC Native) المباشر
+## 📲 تحميل التطبيق — النسخة 3.1 (`wanas3.1.apk` — مع خدمة البث الصوتي المباشر WebRTC)
 
-يمكنك تحميل أحدث ملف **APK للنسخة 3.1 (`versionName = 3.1`, `versionCode = 20`)** مع محرك **WebRTC Native الصوتي الحقيقي** جاهز للتثبيت على هاتفك مباشرة عبر أي من الروابط التالية:
+يمكنك تحميل ملف **APK للنسخة `3.1` (`versionName = "3.1"`, `versionCode = 22`)** مع خدمة البث الصوتي المباشر **WebRTC (`WebRtcVoiceRoomService`)** جاهز للتثبيت على هاتفك مباشرة عبر أي من الطرق التالية:
 
-1. **رابط التحميل المباشر من المستودع (يعمل فوراً بعد الرفع بدون انتظار Actions):**
-   👉 **[اضغط هنا لتحميل wanas-latest.apk مباشرة (Raw Link)](https://github.com/ahmed200442/Wanaas/raw/main/wanas-latest.apk)**
+1. **التحميل المباشر من داخل Google AI Studio:**
+   - اضغط على أيقونة **الإعدادات ⚙️ (Settings)** أو زر **Export / مشاركة** في أعلى يسار/يمين الشاشة، ثم اختر **Download APK** لتحميل ملف النسخة **3.1** المبني مباشرة من المحاكي.
 
-2. **رابط التحميل من قسم الإصدارات (Releases):**
-   👉 **[اضغط هنا لتحميل أحدث نسخة من Releases](https://github.com/ahmed200442/Wanaas/releases/latest/download/wanas-latest.apk)**
-   أو عبر صفحة الإصدارات: https://github.com/ahmed200442/Wanaas/releases
+2. **روابط التحميل المباشر من GitHub Releases (النسخة v3.1):**
+   - 👉 **[تحميل wanas3.1.apk مباشرة (v3.1)](https://github.com/ahmed200442/Wanaas/releases/download/v3.1/wanas3.1.apk)**
+   - 👉 **[تحميل wanas-v3.1.apk مباشرة (v3.1)](https://github.com/ahmed200442/Wanaas/releases/download/v3.1/wanas-v3.1.apk)**
+   - أو عبر صفحة الإصدارات: https://github.com/ahmed200442/Wanaas/releases
 
 ---
 

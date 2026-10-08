@@ -21,6 +21,10 @@
           "type": "string",
           "format": "date-time",
           "description": "Creation server timestamp (submitted via FieldValue.serverTimestamp())."
+        },
+        "ambientThemeId": {
+          "type": "string",
+          "description": "Optional ambient background theme identifier for the voice room (e.g., ROYAL_NIGHT, COFFEE_SHOP, RAINY_NIGHT)."
         }
       },
       "required": [

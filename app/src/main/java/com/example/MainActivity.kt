@@ -152,6 +152,7 @@ import com.example.data.WanasRoomCategoryFilter
 import com.example.notifications.PushNotificationHelper
 import com.example.voice.RealVoiceRoomEngine
 import com.example.voice.VoiceEngineState
+import com.example.voice.WebRtcVoiceRoomService
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.material3.AlertDialog
 import com.example.ui.screens.ActiveTenMinuteMatchCallCard
@@ -246,12 +247,12 @@ fun AppNavigation(
         mutableStateOf<SupabaseMemberAccount?>(null)
     }
 
-    val activeUserId = savedMemberAccount?.userId
-    val activeDisplayName = savedMemberAccount?.displayName
-        ?: currentUser?.displayName
+    val activeUserId = currentUser?.uid ?: savedMemberAccount?.userId
+    val activeDisplayName = savedMemberAccount?.displayName?.ifBlank { null }
+        ?: currentUser?.displayName?.ifBlank { null }
         ?: supabaseService.getLastSavedNickname()
-    val activeEmail = savedMemberAccount?.email
-        ?: currentUser?.email
+    val activeEmail = savedMemberAccount?.email?.ifBlank { null }
+        ?: currentUser?.email?.ifBlank { null }
         ?: supabaseService.getLastSavedEmail()
 
     if (activeUserId == null) {
@@ -303,7 +304,22 @@ fun AuthGateScreen(
         attemptAutoSignIn(
             context = context,
             credentialManager = credentialManager,
-            onAuthSuccess = {},
+            onAuthSuccess = {
+                val fbUser = Firebase.auth.currentUser
+                if (fbUser != null) {
+                    val autoAccount = SupabaseMemberAccount(
+                        userId = fbUser.uid,
+                        memberIdCode = com.example.data.generateMemberIdCode(fbUser.uid),
+                        displayName = fbUser.displayName?.ifBlank { null }
+                            ?: nicknameInput.ifBlank { "عضو ونس" },
+                        email = fbUser.email ?: emailInput,
+                        roleBadge = "👑 عضو ونس الموثق (Firebase Auth)",
+                        supabaseSynced = true
+                    )
+                    supabaseService.saveAccountForAutoLogin(autoAccount)
+                    onMemberAuthenticated(autoAccount)
+                }
+            },
             onUnauthenticated = {},
             scope = scope
         )
@@ -329,14 +345,15 @@ fun AuthGateScreen(
 
     val triggerInstantQuickEntry: () -> Unit = {
         val quickName = nicknameInput.trim().ifBlank {
-            supabaseService.getLastSavedNickname().ifBlank { "أحمد المصري" }
+            supabaseService.getLastSavedNickname().ifBlank { "عضو ونس" }
         }
         val quickEmail = emailInput.trim().ifBlank {
             supabaseService.getLastSavedEmail().ifBlank { "hamadanagy1979@gmail.com" }
         }
+        val generatedUid = "usr_wanas_quick_${System.currentTimeMillis()}"
         val quickAccount = SupabaseMemberAccount(
-            userId = "usr_wanas_quick_${System.currentTimeMillis()}",
-            memberIdCode = "WNS-777777",
+            userId = generatedUid,
+            memberIdCode = com.example.data.generateMemberIdCode(generatedUid),
             displayName = quickName,
             email = quickEmail,
             roleBadge = "👑 عضو ونس المميز",
@@ -598,7 +615,7 @@ fun AuthGateScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "دخول فوري بضغطة واحدة — بدون تعقيد وبدون تأكيد",
+                                text = "بوابة Firebase Authentication الآمنة لدخول الغرف الصوتية المحمية",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = Color.White,
@@ -606,7 +623,37 @@ fun AuthGateScreen(
                                 modifier = Modifier.weight(1f)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("⚡", fontSize = 18.sp)
+                            Text("🔐", fontSize = 18.sp)
+                        }
+
+                        Surface(
+                            color = Color(0xFF1A0F33),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, WanasAmberGold.copy(alpha = 0.55f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("firebase_auth_security_badge")
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "✅ Firebase Auth + WebRTC Encrypted Audio Rooms",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = WanasEmeraldOnline
+                                )
+                                Text(
+                                    text = "v3.1",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = WanasAmberGold
+                                )
+                            }
                         }
 
                         Row(
@@ -614,11 +661,11 @@ fun AuthGateScreen(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Left Button: دخول بـ Google
+                            // Left Button: Sign in with Google (Firebase Auth via Credential Manager)
                             Surface(
                                 color = Color(0xFF144B46),
                                 shape = RoundedCornerShape(16.dp),
-                                border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.5f)),
+                                border = BorderStroke(1.5.dp, WanasAmberGold.copy(alpha = 0.7f)),
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(58.dp)
@@ -634,9 +681,11 @@ fun AuthGateScreen(
                                                 if (fbUser != null) {
                                                     val googleAccount = SupabaseMemberAccount(
                                                         userId = fbUser.uid,
+                                                        memberIdCode = com.example.data.generateMemberIdCode(fbUser.uid),
                                                         displayName = fbUser.displayName?.ifBlank { null }
                                                             ?: nicknameInput.ifBlank { "عضو ونس" },
                                                         email = fbUser.email ?: emailInput,
+                                                        roleBadge = "👑 عضو ونس الموثق (Firebase Auth)",
                                                         supabaseSynced = true
                                                     )
                                                     supabaseService.saveAccountForAutoLogin(googleAccount)
@@ -645,9 +694,9 @@ fun AuthGateScreen(
                                                     triggerInstantQuickEntry()
                                                 }
                                             },
-                                            onAuthError = {
+                                            onAuthError = { errMsg ->
                                                 isLoading = false
-                                                triggerInstantQuickEntry()
+                                                authError = "تنبيه مصادقة Google: $errMsg — يمكنك استخدام الدخول الفوري أو نموذج التسجيل بالأسفل"
                                             },
                                             scope = scope,
                                             onAuthCancelled = { isLoading = false }
@@ -663,8 +712,8 @@ fun AuthGateScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = "دخول بـ\nGoogle",
-                                        style = MaterialTheme.typography.labelLarge,
+                                        text = "Sign in with Google\nدخول بـ Google",
+                                        style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.ExtraBold,
                                         color = Color.White,
                                         textAlign = TextAlign.Center
@@ -672,7 +721,7 @@ fun AuthGateScreen(
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Icon(
                                         imageVector = Icons.Default.AccountCircle,
-                                        contentDescription = "Google",
+                                        contentDescription = "Sign in with Google",
                                         tint = WanasAmberGold,
                                         modifier = Modifier.size(24.dp)
                                     )
@@ -806,7 +855,7 @@ fun AuthGateScreen(
                         }
 
                         Text(
-                            text = "اختار اسمك أو لقبك المفضل في «وَنَس» وادخل فوراً بدون أي كود تفعيل أو تعقيد",
+                            text = "سجّل الدخول أو أنشئ حسابك الموثق عبر Firebase Auth للوصول الآمن إلى الغرف الصوتية المشفرة",
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold,
                             color = Color.White.copy(alpha = 0.85f),
@@ -819,7 +868,7 @@ fun AuthGateScreen(
                                 value = nicknameInput,
                                 onValueChange = { nicknameInput = it },
                                 label = { Text("اسمك أو لقبك في وَنَس") },
-                                placeholder = { Text("مثال: أحمد المصري") },
+                                placeholder = { Text("أدخل اسمك أو لقبك المفضل") },
                                 trailingIcon = {
                                     Icon(Icons.Default.Person, contentDescription = null, tint = WanasAmberGold)
                                 },
@@ -1180,7 +1229,27 @@ fun ChatRoomMetadataScreen(
         }
     }
 
-    val screenBackgroundBrush = if (isDarkMode) {
+    val activeRoomAmbientTheme = remember(actionState.activeRoom?.ambientThemeId) {
+        actionState.activeRoom?.let { com.example.data.WanasRoomAmbientTheme.resolveTheme(it.ambientThemeId) }
+    }
+
+    val isShowingDedicatedActiveRoom = actionState.activeRoom != null &&
+        !showProfileView &&
+        !showFadfadaView &&
+        !showNotificationsPaymentView &&
+        !showFriendsView &&
+        !showCoinsAndGiftsView &&
+        !showSafetyAndAdminView
+
+    val screenBackgroundBrush = if (isShowingDedicatedActiveRoom && activeRoomAmbientTheme != null) {
+        Brush.verticalGradient(
+            listOf(
+                Color(activeRoomAmbientTheme.gradientStartHex),
+                Color(activeRoomAmbientTheme.gradientMidHex),
+                Color(activeRoomAmbientTheme.gradientEndHex)
+            )
+        )
+    } else if (isDarkMode) {
         Brush.verticalGradient(listOf(WanasDeepBg, Color(0xFF171033)))
     } else {
         Brush.verticalGradient(
@@ -1618,6 +1687,10 @@ fun ChatRoomMetadataScreen(
                 // 🎙️ Dedicated Standalone Room Page ("افتح غرفة تدخلني على صفحة الغرفة لوحدها")
                 val currentActiveRoom = actionState.activeRoom!!
                 val hasFullRoomAuthority = actionState.isAdminOwner || currentActiveRoom.creatorId == currentUserId
+                BackHandler {
+                    viewModel.leaveCurrentRoom()
+                    currentMainSectionId = WanasAppSection.VOICE_ROOMS.id
+                }
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
@@ -1629,6 +1702,8 @@ fun ChatRoomMetadataScreen(
                 ) {
                     // Dedicated Room Page Top Navigation Bar
                     item {
+                        val topBarTheme = com.example.data.WanasRoomAmbientTheme.resolveTheme(currentActiveRoom.ambientThemeId)
+                        val topBarAccent = Color(topBarTheme.accentHex)
                         ElevatedCard(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1636,7 +1711,7 @@ fun ChatRoomMetadataScreen(
                                 .testTag("dedicated_room_page_top_bar"),
                             shape = RoundedCornerShape(20.dp),
                             colors = CardDefaults.elevatedCardColors(
-                                containerColor = if (isDarkMode) WanasCardBg else WanasDayDarkHeader
+                                containerColor = Color(topBarTheme.cardSurfaceHex)
                             )
                         ) {
                             Row(
@@ -1664,14 +1739,15 @@ fun ChatRoomMetadataScreen(
                                             text = "🎙️ صفحة الغرفة المستقلة: ${currentActiveRoom.roomName}",
                                             style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.ExtraBold,
-                                            color = WanasAmberGold,
+                                            color = topBarAccent,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
                                         Text(
-                                            text = "بث صوتي مباشر • متواجدون الآن (${actionState.activeRoomMembers.size})",
+                                            text = "${topBarTheme.emoji} ثيم الأجواء: ${topBarTheme.titleAr} • متواجدون (${actionState.activeRoomMembers.size})",
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = WanasEmeraldOnline
+                                            color = WanasEmeraldOnline,
+                                            modifier = Modifier.testTag("dedicated_room_active_theme_subtitle")
                                         )
                                     }
                                 }
@@ -1683,7 +1759,7 @@ fun ChatRoomMetadataScreen(
                                     },
                                     shape = RoundedCornerShape(12.dp),
                                     colors = ButtonDefaults.filledTonalButtonColors(
-                                        containerColor = WanasAmberGold,
+                                        containerColor = topBarAccent,
                                         contentColor = Color(0xFF1A103C)
                                     ),
                                     modifier = Modifier.testTag("back_to_rooms_list_button")
@@ -1868,6 +1944,18 @@ fun ChatRoomMetadataScreen(
                             },
                             onVacateOrSpeakerOnlySeats = { vacateSeatIdx, speakerOnly ->
                                 viewModel.vacateOrSpeakerOnlySeatsByRoomAdmin(vacateSeatIdx, speakerOnly)
+                            },
+                            onSelectAmbientTheme = { newThemeId ->
+                                viewModel.updateRoomAmbientTheme(currentActiveRoom.roomId, newThemeId)
+                            },
+                            onAddUserToActiveRoom = { memberName, avatarEmoji ->
+                                viewModel.addUserToActiveRoom(
+                                    memberName = memberName,
+                                    avatarEmoji = avatarEmoji
+                                )
+                            },
+                            onRemoveUserFromActiveRoom = { userId, memberName ->
+                                viewModel.removeUserFromActiveRoom(userId, memberName)
                             },
                             onLeaveRoom = { viewModel.leaveCurrentRoom() }
                         )
@@ -2894,11 +2982,17 @@ fun ChatRoomMetadataScreen(
                             }
                         }
 
-                        // Create New Room Card (Supports Category Selection + Optional Password + Live Multi-Seat Stage)
+                        // Create New Room Card (Supports Category Selection + Ambient Theme Selection + Optional Password + Live Multi-Seat Stage)
                         item {
                             var roomPasswordInput by rememberSaveable { mutableStateOf("") }
                             var newRoomCategoryId by rememberSaveable {
                                 mutableStateOf(WanasRoomCategoryFilter.GENERAL.id)
+                            }
+                            var newRoomAmbientThemeId by rememberSaveable {
+                                mutableStateOf(com.example.data.WanasRoomAmbientTheme.ROYAL_NIGHT.id)
+                            }
+                            val selectedAmbientThemePreview = remember(newRoomAmbientThemeId) {
+                                com.example.data.WanasRoomAmbientTheme.resolveTheme(newRoomAmbientThemeId)
                             }
                             Card(
                                 modifier = Modifier
@@ -2907,11 +3001,11 @@ fun ChatRoomMetadataScreen(
                                     .testTag("create_room_card"),
                                 shape = RoundedCornerShape(20.dp),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = if (isDarkMode) WanasCardBg else WanasDayLightSurface
+                                    containerColor = if (isDarkMode) Color(selectedAmbientThemePreview.cardSurfaceHex) else WanasDayLightSurface
                                 ),
                                 border = BorderStroke(
                                     width = 1.5.dp,
-                                    color = if (isDarkMode) WanasTealCalm.copy(alpha = 0.5f) else WanasDayDarkHeader.copy(alpha = 0.25f)
+                                    color = Color(selectedAmbientThemePreview.accentHex).copy(alpha = 0.75f)
                                 )
                             ) {
                                 Column(
@@ -2919,10 +3013,10 @@ fun ChatRoomMetadataScreen(
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Text(
-                                        text = "➕ إنشاء غرفة بث صوتية جديدة (اختر التصنيف والباسورد)",
+                                        text = "➕ إنشاء غرفة بث صوتية جديدة (اختر التصنيف وثيم الأجواء والباسورد)",
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.ExtraBold,
-                                        color = if (isDarkMode) WanasTealCalm else WanasDayDarkHeader
+                                        color = if (isDarkMode) Color(selectedAmbientThemePreview.accentHex) else WanasDayDarkHeader
                                     )
 
                                     Column(
@@ -2938,7 +3032,7 @@ fun ChatRoomMetadataScreen(
                                                 value = roomNameInput,
                                                 onValueChange = { roomNameInput = it },
                                                 label = { Text("اسم الغرفة الجديدة", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                                placeholder = { Text("مثال: 💻 نقاش تقني وذكاء اصطناعي") },
+                                                placeholder = { Text("مثال: ☕ سهرة قهوة وموسيقى") },
                                                 singleLine = true,
                                                 modifier = Modifier
                                                     .weight(1.3f)
@@ -3000,12 +3094,84 @@ fun ChatRoomMetadataScreen(
                                             }
                                         }
 
+                                        Text(
+                                            text = "🎨 ثيم وأجواء خلفية الغرفة (Ambient Theme — ${selectedAmbientThemePreview.emoji} ${selectedAmbientThemePreview.titleEn}):",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isDarkMode) Color(selectedAmbientThemePreview.accentHex) else WanasDayDarkHeader
+                                        )
+
+                                        LazyRow(
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("create_room_ambient_theme_selector_row")
+                                        ) {
+                                            items(com.example.data.WanasRoomAmbientTheme.entries.toList(), key = { it.id }) { themeOption ->
+                                                val isThemeSelected = newRoomAmbientThemeId == themeOption.id
+                                                val themeAccent = Color(themeOption.accentHex)
+                                                Surface(
+                                                    color = if (isThemeSelected) {
+                                                        Color(themeOption.cardSurfaceHex)
+                                                    } else if (isDarkMode) {
+                                                        Color.White.copy(alpha = 0.07f)
+                                                    } else {
+                                                        WanasDaySurfaceVariant
+                                                    },
+                                                    shape = RoundedCornerShape(14.dp),
+                                                    border = BorderStroke(
+                                                        width = if (isThemeSelected) 2.dp else 1.dp,
+                                                        color = if (isThemeSelected) themeAccent else themeAccent.copy(alpha = 0.45f)
+                                                    ),
+                                                    modifier = Modifier
+                                                        .clickable { newRoomAmbientThemeId = themeOption.id }
+                                                        .testTag("create_room_ambient_theme_chip_${themeOption.id}")
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                    ) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .size(14.dp)
+                                                                .clip(CircleShape)
+                                                                .background(
+                                                                    Brush.linearGradient(
+                                                                        listOf(
+                                                                            Color(themeOption.gradientStartHex),
+                                                                            themeAccent
+                                                                        )
+                                                                    )
+                                                                )
+                                                        )
+                                                        Column {
+                                                            Text(
+                                                                text = "${themeOption.emoji} ${themeOption.titleAr}",
+                                                                style = MaterialTheme.typography.labelSmall,
+                                                                fontWeight = FontWeight.ExtraBold,
+                                                                color = if (isThemeSelected) themeAccent else if (isDarkMode) Color.White else WanasDayTextPrimary
+                                                            )
+                                                            Text(
+                                                                text = themeOption.vibeSubtitleAr,
+                                                                style = MaterialTheme.typography.labelSmall,
+                                                                color = if (isThemeSelected || isDarkMode) Color.White.copy(alpha = 0.78f) else WanasDayTextSecondary,
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+
                                         Button(
                                             onClick = {
                                                 viewModel.createChatRoom(
                                                     roomName = roomNameInput,
                                                     roomPassword = roomPasswordInput,
-                                                    roomCategory = newRoomCategoryId
+                                                    roomCategory = newRoomCategoryId,
+                                                    ambientThemeId = newRoomAmbientThemeId
                                                 )
                                                 roomNameInput = ""
                                                 roomPasswordInput = ""
@@ -3017,13 +3183,13 @@ fun ChatRoomMetadataScreen(
                                                 .testTag("create_room_button"),
                                             shape = RoundedCornerShape(14.dp),
                                             colors = ButtonDefaults.buttonColors(
-                                                containerColor = if (isDarkMode) WanasEmeraldOnline else WanasDayDarkHeader,
-                                                contentColor = if (isDarkMode) Color.White else WanasAmberGold
+                                                containerColor = if (isDarkMode) Color(selectedAmbientThemePreview.accentHex) else WanasDayDarkHeader,
+                                                contentColor = if (isDarkMode) Color(0xFF1A103C) else WanasAmberGold
                                             )
                                         ) {
                                             Icon(Icons.Default.Add, contentDescription = null)
                                             Spacer(modifier = Modifier.width(6.dp))
-                                            Text("حفظ الغرفة وبدء البث الصوتى", fontWeight = FontWeight.ExtraBold)
+                                            Text("حفظ الغرفة وبدء البث الصوتى (${selectedAmbientThemePreview.emoji} ${selectedAmbientThemePreview.titleEn})", fontWeight = FontWeight.ExtraBold)
                                         }
                                     }
                                 }
@@ -3529,6 +3695,9 @@ private fun ActiveRoomMembersPanel(
     onDeleteSingleMessageByAdmin: (String) -> Unit = {},
     onManageRoomMemberByRoomAdmin: (String, String) -> Unit = { _, _ -> },
     onVacateOrSpeakerOnlySeats: (Int?, Boolean) -> Unit = { _, _ -> },
+    onSelectAmbientTheme: (String) -> Unit = {},
+    onAddUserToActiveRoom: (String, String) -> Unit = { _, _ -> },
+    onRemoveUserFromActiveRoom: (String, String) -> Unit = { _, _ -> },
     onLeaveRoom: () -> Unit
 ) {
     val context = LocalContext.current
@@ -3562,7 +3731,7 @@ private fun ActiveRoomMembersPanel(
     }
 
     LaunchedEffect(room.roomId, currentUserId, currentUserName, activeMembers, roomAudioSeats) {
-        if (room.roomId.isNotBlank()) {
+        if (room.roomId.isNotBlank() && voiceState.isEngineRunning) {
             voiceEngine.bindRoomSignalingAndPeers(
                 scope = scope,
                 roomId = room.roomId,
@@ -3599,9 +3768,17 @@ private fun ActiveRoomMembersPanel(
     var roomWelcomeEdit by rememberSaveable(room.roomId, room.roomWelcomeMessage) { mutableStateOf(room.roomWelcomeMessage) }
     var roomNameEdit by rememberSaveable(room.roomId, room.roomName) { mutableStateOf(room.roomName) }
     var roomTargetMemberEdit by rememberSaveable(room.roomId) { mutableStateOf("") }
+    var newRoomMemberNameInput by rememberSaveable(room.roomId) { mutableStateOf("") }
+    var newRoomMemberEmojiInput by rememberSaveable(room.roomId) { mutableStateOf("🎙️") }
     var selectedGiftId by rememberSaveable(room.roomId) {
         mutableStateOf(WanasCatalogData.digitalGifts.firstOrNull()?.giftId ?: "gift_rose")
     }
+    val currentAmbientTheme = remember(room.ambientThemeId) {
+        com.example.data.WanasRoomAmbientTheme.resolveTheme(room.ambientThemeId)
+    }
+    val themeCardSurface = Color(currentAmbientTheme.cardSurfaceHex)
+    val themeStageSurface = Color(currentAmbientTheme.stageSurfaceHex)
+    val themeAccentColor = Color(currentAmbientTheme.accentHex)
 
     ElevatedCard(
         modifier = Modifier
@@ -3610,7 +3787,7 @@ private fun ActiveRoomMembersPanel(
             .testTag("active_room_members_panel"),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.elevatedCardColors(
-            containerColor = if (isDarkMode) Color(0xFF1E1140) else WanasDayDarkHeader
+            containerColor = themeCardSurface
         )
     ) {
         Column(
@@ -3630,19 +3807,19 @@ private fun ActiveRoomMembersPanel(
                     Icon(
                         imageVector = Icons.Default.Group,
                         contentDescription = "الأعضاء المتواجدون",
-                        tint = WanasAmberGold
+                        tint = themeAccentColor
                     )
                     Column {
                         Text(
                             text = "داخل الغرفة الآن: ${room.roomName}",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.ExtraBold,
-                            color = WanasAmberGold,
+                            color = themeAccentColor,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "الأعضاء الموجودين بالغرفة (${activeMembers.size}) • ${if (room.hasPassword) "🔒 غرفة بباسورد" else "🌐 غرفة عامة"}",
+                            text = "الأعضاء الموجودين بالغرفة (${activeMembers.size}) • ${if (room.hasPassword) "🔒 غرفة بباسورد" else "🌐 غرفة عامة"} • ${currentAmbientTheme.emoji} ${currentAmbientTheme.titleEn}",
                             style = MaterialTheme.typography.labelSmall,
                             color = WanasEmeraldOnline,
                             modifier = Modifier.testTag("active_members_count")
@@ -3670,6 +3847,92 @@ private fun ActiveRoomMembersPanel(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("خروج من الغرفة", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            // 🎨 Ambient Theme Banner & Live Theme Switcher for Room Creator / Host / Admin
+            Surface(
+                color = themeStageSurface,
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.2.dp, themeAccentColor.copy(alpha = 0.7f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("active_room_ambient_theme_panel")
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "🎨 ثيم أجواء الغرفة الحالي: ${currentAmbientTheme.emoji} ${currentAmbientTheme.titleAr}",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = themeAccentColor,
+                                modifier = Modifier.testTag("active_room_ambient_theme_label")
+                            )
+                            Text(
+                                text = currentAmbientTheme.vibeSubtitleAr,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White.copy(alpha = 0.82f)
+                            )
+                        }
+                        Surface(
+                            color = themeAccentColor.copy(alpha = 0.2f),
+                            shape = RoundedCornerShape(50),
+                            border = BorderStroke(1.dp, themeAccentColor)
+                        ) {
+                            Text(
+                                text = "${currentAmbientTheme.emoji} ${currentAmbientTheme.titleEn}",
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = themeAccentColor
+                            )
+                        }
+                    }
+
+                    if (hasRoomAdminAuthority) {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("active_room_ambient_theme_switcher_row")
+                        ) {
+                            items(com.example.data.WanasRoomAmbientTheme.entries.toList(), key = { it.id }) { themeOpt ->
+                                val isCurrentTheme = currentAmbientTheme.id == themeOpt.id
+                                val optAccent = Color(themeOpt.accentHex)
+                                Surface(
+                                    color = if (isCurrentTheme) {
+                                        optAccent
+                                    } else {
+                                        Color(themeOpt.cardSurfaceHex)
+                                    },
+                                    shape = RoundedCornerShape(50),
+                                    border = BorderStroke(
+                                        width = if (isCurrentTheme) 2.dp else 1.dp,
+                                        color = optAccent
+                                    ),
+                                    modifier = Modifier
+                                        .clickable { onSelectAmbientTheme(themeOpt.id) }
+                                        .testTag("active_room_theme_option_${themeOpt.id}")
+                                ) {
+                                    Text(
+                                        text = "${themeOpt.emoji} ${themeOpt.titleEn}",
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = if (isCurrentTheme) Color(0xFF120B29) else Color.White
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -4038,7 +4301,8 @@ private fun ActiveRoomMembersPanel(
                                 .fillMaxWidth()
                                 .testTag("room_top_supporters_podium_row")
                         ) {
-                            items(roomTopSupporters.take(3), key = { it.memberIdCode + it.rank }) { sup ->
+                            val uniqueSupporters = roomTopSupporters.distinctBy { "${it.memberIdCode}_${it.rank}_${it.memberName}" }.take(3)
+                            items(uniqueSupporters, key = { "${it.memberIdCode}_${it.rank}_${it.memberName}" }) { sup ->
                                 Surface(
                                     color = Color.White.copy(alpha = 0.08f),
                                     shape = RoundedCornerShape(12.dp),
@@ -4074,9 +4338,9 @@ private fun ActiveRoomMembersPanel(
 
             // 🎙️ 2. Real 8-Seat Voice Stage System ("نظام المقاعد الصوتية الحقيقي بدل مجرد أسماء أعضاء: 8 مقاعد")
             Surface(
-                color = Color(0xFF140B2E),
+                color = themeStageSurface,
                 shape = RoundedCornerShape(18.dp),
-                border = BorderStroke(1.5.dp, WanasAmberGold.copy(alpha = 0.6f)),
+                border = BorderStroke(1.5.dp, themeAccentColor.copy(alpha = 0.7f)),
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("live_stage_mic_seats_grid")
@@ -5731,46 +5995,160 @@ private fun ActiveRoomMembersPanel(
                 }
             }
 
-            // Horizontal list of members currently present inside the room
-            LazyRow(
+            // 👥 Firestore Voice Room Schema & Add Users to Active Room Panel ("هيكل قاعدة بيانات في Firestore لإدارة غرف الدردشة الصوتية مع دعم إضافة مستخدمين للغرف النشطة")
+            Surface(
+                color = Color.White.copy(alpha = 0.06f),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.2.dp, WanasEmeraldOnline.copy(alpha = 0.7f)),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag("active_members_row"),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    .testTag("firestore_active_room_users_panel")
             ) {
-                items(activeMembers, key = { it.userId }) { member ->
-                    Surface(
-                        color = if (isDarkMode) Color.White.copy(alpha = 0.08f) else WanasDayLightSurface,
-                        shape = RoundedCornerShape(16.dp),
-                        border = BorderStroke(1.dp, WanasEmeraldOnline.copy(alpha = 0.65f)),
-                        modifier = Modifier.testTag("active_member_chip_${member.userId}")
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "☁️ إدارة مستخدمي الغرفة النشطة في Firestore (${activeMembers.size})",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = WanasAmberGold
+                            )
+                            Text(
+                                text = "هيكل Firestore: /chat_rooms/${room.roomId}/active_members/{userId}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = WanasEmeraldOnline
+                            )
+                        }
+                        Surface(
+                            color = WanasEmeraldOnline.copy(alpha = 0.2f),
+                            shape = RoundedCornerShape(50),
+                            border = BorderStroke(1.dp, WanasEmeraldOnline)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(WanasAmberGold.copy(alpha = 0.25f)),
-                                contentAlignment = Alignment.Center
+                            Text(
+                                text = "Firestore Sync ✅",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = WanasEmeraldOnline
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = newRoomMemberNameInput,
+                            onValueChange = { newRoomMemberNameInput = it },
+                            label = { Text("اسم المستخدم لإضافته للغرفة النشطة") },
+                            placeholder = { Text("مثال: أحمد / سارة") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = WanasAmberGold,
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.4f),
+                                focusedLabelColor = WanasAmberGold,
+                                unfocusedLabelColor = Color.White.copy(alpha = 0.75f)
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("active_room_add_user_input")
+                        )
+
+                        Button(
+                            onClick = {
+                                if (newRoomMemberNameInput.isNotBlank()) {
+                                    onAddUserToActiveRoom(newRoomMemberNameInput, newRoomMemberEmojiInput)
+                                    newRoomMemberNameInput = ""
+                                }
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = WanasEmeraldOnline,
+                                contentColor = Color.White
+                            ),
+                            modifier = Modifier
+                                .height(50.dp)
+                                .testTag("active_room_add_user_button")
+                        ) {
+                            Icon(Icons.Default.PersonAdd, contentDescription = "إضافة مستخدم للغرفة")
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("إضافة للغرفة", fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+
+                    // Horizontal list of members currently present inside the room
+                    val uniqueActiveMembers = remember(activeMembers) {
+                        activeMembers.distinctBy { it.userId.ifBlank { it.memberName } }
+                    }
+                    LazyRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("active_members_row"),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(uniqueActiveMembers, key = { it.userId.ifBlank { it.memberName } }) { member ->
+                            Surface(
+                                color = if (isDarkMode) Color.White.copy(alpha = 0.08f) else WanasDayLightSurface,
+                                shape = RoundedCornerShape(16.dp),
+                                border = BorderStroke(1.dp, WanasEmeraldOnline.copy(alpha = 0.65f)),
+                                modifier = Modifier.testTag("active_member_chip_${member.userId}")
                             ) {
-                                Text(text = member.avatarEmoji)
-                            }
-                            Column {
-                                Text(
-                                    text = member.memberName,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = if (isDarkMode) Color.White else WanasDayTextPrimary
-                                )
-                                Text(
-                                    text = member.roleBadge,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (isDarkMode) WanasTealCalm else WanasTealDeep
-                                )
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(CircleShape)
+                                            .background(WanasAmberGold.copy(alpha = 0.25f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(text = member.avatarEmoji)
+                                    }
+                                    Column {
+                                        Text(
+                                            text = member.memberName,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = if (isDarkMode) Color.White else WanasDayTextPrimary
+                                        )
+                                        Text(
+                                            text = member.roleBadge,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = if (isDarkMode) WanasTealCalm else WanasTealDeep
+                                        )
+                                    }
+                                    if (hasRoomAdminAuthority && member.userId != currentUserId) {
+                                        Surface(
+                                            color = WanasCoralWarm.copy(alpha = 0.2f),
+                                            shape = CircleShape,
+                                            modifier = Modifier
+                                                .clickable { onRemoveUserFromActiveRoom(member.userId, member.memberName) }
+                                                .testTag("remove_active_member_${member.userId}")
+                                        ) {
+                                            Text(
+                                                text = "✕",
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = WanasCoralWarm
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -5905,6 +6283,9 @@ private fun ChatRoomMetadataItemCard(
     val categoryFilterMeta = remember(room.roomCategory) {
         WanasRoomCategoryFilter.resolveDisplayFilter(room.roomCategory)
     }
+    val roomAmbientThemeMeta = remember(room.ambientThemeId) {
+        com.example.data.WanasRoomAmbientTheme.resolveTheme(room.ambientThemeId)
+    }
 
     var showPasswordPrompt by rememberSaveable(room.roomId) { mutableStateOf(false) }
     var enteredRoomPassword by rememberSaveable(room.roomId) { mutableStateOf("") }
@@ -6000,6 +6381,20 @@ private fun ChatRoomMetadataItemCard(
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = if (isInsideThisRoom || isDarkMode) WanasTealCalm else WanasTealDeep
+                            )
+                        }
+                        Surface(
+                            color = Color(roomAmbientThemeMeta.cardSurfaceHex).copy(alpha = 0.85f),
+                            shape = RoundedCornerShape(50),
+                            border = BorderStroke(1.dp, Color(roomAmbientThemeMeta.accentHex).copy(alpha = 0.75f)),
+                            modifier = Modifier.testTag("room_ambient_theme_badge_${room.roomId}")
+                        ) {
+                            Text(
+                                text = "${roomAmbientThemeMeta.emoji} ${roomAmbientThemeMeta.titleEn}",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(roomAmbientThemeMeta.accentHex)
                             )
                         }
                         if (room.roomTopicTag.isNotBlank() && !room.roomTopicTag.contains(categoryFilterMeta.labelAr)) {

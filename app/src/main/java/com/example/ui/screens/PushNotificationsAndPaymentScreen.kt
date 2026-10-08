@@ -385,7 +385,7 @@ private fun PushNotificationsAndInviteContent(
     var newMessagePushInput by rememberSaveable { mutableStateOf("") }
     var liveBroadcastTopicInput by rememberSaveable { mutableStateOf("") }
     var friendHostNameInput by rememberSaveable {
-        mutableStateOf(actionState.friendsList.firstOrNull()?.friendName ?: "أحمد المصري 🌟")
+        mutableStateOf(actionState.friendsList.firstOrNull()?.friendName ?: actionState.memberDisplayName)
     }
     var friendNewRoomTitleInput by rememberSaveable { mutableStateOf("") }
     var friendNewRoomCategoryId by rememberSaveable { mutableStateOf(WanasRoomCategoryFilter.GENERAL.id) }

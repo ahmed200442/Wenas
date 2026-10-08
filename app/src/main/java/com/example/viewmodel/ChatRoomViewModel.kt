@@ -102,7 +102,7 @@ data class ChatRoomsActionState(
     val isSubmitting: Boolean = false,
     val statusMessage: String? = null,
     val errorMessage: String? = null,
-    val memberDisplayName: String = "أحمد المصري",
+    val memberDisplayName: String = "عضو ونس",
     val memberEmail: String = "",
     val memberAvatarEmoji: String = "👑",
     val memberAvatarUri: String = "",
@@ -178,76 +178,8 @@ data class ChatRoomsActionState(
     val dailyMissions: List<WanasDailyMission> = WanasCatalogData.defaultDailyMissions,
     // 👑 Two-Level Admin Architecture (1. App Owner vs 2. Room Admin):
     val currentAdminRole: WanasAdminRoleType = WanasAdminRoleType.OWNER,
-    val managedMembersDirectory: List<ManagedMemberProfile> = listOf(
-        ManagedMemberProfile(
-            memberId = "WNS-777777",
-            displayName = "أحمد المصري 🌟",
-            emailOrCode = "WNS-777777 • داعم VIP ذهبي",
-            avatarEmoji = "👑",
-            roleType = WanasAdminRoleType.ROOM_ADMIN,
-            accountStatus = ManagedAccountStatus.ACTIVE,
-            coinsBalance = 640,
-            currentRoomName = "🌙 سهرة مصرية — الناس للناس",
-            activeDeviceSession = "Android 15 • متصل في غرفة صوتية"
-        ),
-        ManagedMemberProfile(
-            memberId = "WNS-204918",
-            displayName = "سارة محمد 🌸",
-            emailOrCode = "WNS-204918 • مضيفة غرف",
-            avatarEmoji = "🌸",
-            roleType = WanasAdminRoleType.MODERATOR,
-            accountStatus = ManagedAccountStatus.ACTIVE,
-            coinsBalance = 420,
-            currentRoomName = "😂 دردشة وضحك وهزار",
-            activeDeviceSession = "Android 14 • متصلة الآن"
-        ),
-        ManagedMemberProfile(
-            memberId = "WNS-519082",
-            displayName = "كريم عادل ⚡",
-            emailOrCode = "WNS-519082 • بطل جولات PK",
-            avatarEmoji = "🦁",
-            roleType = null,
-            accountStatus = ManagedAccountStatus.ACTIVE,
-            coinsBalance = 310,
-            currentRoomName = "🎮 ألعاب وتحديات صوتية",
-            activeDeviceSession = "Android 14 • نشط في تحدي PK"
-        )
-    ),
-    val paymentPurchaseOrders: List<PaymentPurchaseOrder> = listOf(
-        PaymentPurchaseOrder(
-            orderId = "ORD-8841",
-            buyerUserId = "usr_ahmed_1",
-            buyerMemberCode = "WNS-777777",
-            buyerName = "أحمد المصري 🌟",
-            orderType = "COIN_PACKAGE",
-            itemId = "coins_500",
-            itemTitleAr = "باقة 500 Coin (توفير 20%)",
-            coinsToCredit = 500,
-            grantVipBadge = false,
-            amountEgp = 80,
-            paymentMethod = "VODAFONE_CASH",
-            transactionReference = "VF-01098451203",
-            status = PaymentPurchaseOrderStatus.PENDING_OWNER_APPROVAL,
-            timestampLabel = "منذ 3 دقائق"
-        ),
-        PaymentPurchaseOrder(
-            orderId = "ORD-8842",
-            buyerUserId = "usr_sara_2",
-            buyerMemberCode = "WNS-204918",
-            buyerName = "سارة محمد 🌸",
-            orderType = "VIP_PLAN",
-            itemId = "vip_royal_annual",
-            itemTitleAr = "باقة التاج الملكي السنوية + 250 Coins",
-            coinsToCredit = 250,
-            grantVipBadge = true,
-            vipBadgeLabel = "👑 التاج الملكي VIP",
-            amountEgp = 399,
-            paymentMethod = "INSTAPAY",
-            transactionReference = "IPN-774190238",
-            status = PaymentPurchaseOrderStatus.PENDING_OWNER_APPROVAL,
-            timestampLabel = "منذ 7 دقائق"
-        )
-    ),
+    val managedMembersDirectory: List<ManagedMemberProfile> = emptyList(),
+    val paymentPurchaseOrders: List<PaymentPurchaseOrder> = emptyList(),
     val pkRedComboStreak: Int = 1,
     val pkBlueComboStreak: Int = 1,
     val pkComboStreakCount: Int = 1,
@@ -286,22 +218,6 @@ data class ChatRoomsActionState(
     ),
     val suspiciousBehaviorAlerts: List<SuspiciousBehaviorAlert> = listOf(
         SuspiciousBehaviorAlert(
-            alertId = "sec_alert_1",
-            categoryAr = "طلبات مايك متكررة بشكل آلي",
-            suspectName = "User #5482",
-            roomOrTarget = "🌙 سهرة مصرية — الناس للناس",
-            riskLevel = SecurityRiskLevel.HIGH_RISK,
-            detailsAr = "تم رصد 14 طلب مايك متتالي في 5 ثوانٍ — تم الإيقاف التلقائي من السيرفر"
-        ),
-        SuspiciousBehaviorAlert(
-            alertId = "sec_alert_2",
-            categoryAr = "محاولات متكررة لدخول غرف محظورة بباسورد",
-            suspectName = "User #3109",
-            roomOrTarget = "👑 صالون النخبة الخاص",
-            riskLevel = SecurityRiskLevel.NEEDS_REVIEW,
-            detailsAr = "6 محاولات إدخال كلمة مرور خاطئة خلال دقيقتين"
-        ),
-        SuspiciousBehaviorAlert(
             alertId = "sec_alert_3",
             categoryAr = "فحص تعدد الحسابات وحركة العملات والـ Spam",
             suspectName = "فحص النظام الدوري",
@@ -326,11 +242,7 @@ data class ChatRoomsActionState(
     val systemSettings: WanasSystemSettings = WanasSystemSettings(),
     // 🚀 New Implemented Proposals (PK Timer, Lucky Coin Box, Room Top Supporters, Fadfada Threads & Reactions, Special IDs & Frames, Families/Clans):
     val activeLuckyCoinBox: LuckyCoinBoxState? = null,
-    val roomTopSupporters: List<RoomTopSupporterItem> = listOf(
-        RoomTopSupporterItem(1, "أحمد المصري 🌟", "WNS-777777", "👑", 450, "🥇"),
-        RoomTopSupporterItem(2, "سارة محمد 🌸", "WNS-204918", "💎", 320, "🥈"),
-        RoomTopSupporterItem(3, "كريم عادل ⚡", "WNS-519082", "🦁", 210, "🥉")
-    ),
+    val roomTopSupporters: List<RoomTopSupporterItem> = emptyList(),
     val pkCountdownSecondsRemaining: Int = 180,
     val isPkCountdownRunning: Boolean = false,
     val pkWinnerAnnouncementText: String? = null,
@@ -406,7 +318,8 @@ class ChatRoomViewModel(
             pinnedAnnouncement = "🌟 سهرة مصرية مفتوحة للجميع — شاركنا بالكلام والضحك أو اسمع براحتك!",
             isPinnedByAdmin = true,
             pkTeamRedScore = 240,
-            pkTeamBlueScore = 195
+            pkTeamBlueScore = 195,
+            ambientThemeId = com.example.data.WanasRoomAmbientTheme.ROYAL_NIGHT.id
         ),
         ChatRoomMetadata(
             roomId = "room_wanas_tech_ai_1",
@@ -416,7 +329,8 @@ class ChatRoomViewModel(
             roomTopicTag = "💻 تكنولوجيا (Technology)",
             micSeatsCount = 8,
             roomCategory = "TECHNOLOGY",
-            pinnedAnnouncement = "💻 نقاشات تقنية حية حول البرمجة، الذكاء الاصطناعي، وتطوير التطبيقات"
+            pinnedAnnouncement = "💻 نقاشات تقنية حية حول البرمجة، الذكاء الاصطناعي، وتطوير التطبيقات",
+            ambientThemeId = com.example.data.WanasRoomAmbientTheme.NEON_LOUNGE.id
         ),
         ChatRoomMetadata(
             roomId = "room_wanas_music_8",
@@ -425,7 +339,8 @@ class ChatRoomViewModel(
             timestamp = Timestamp.now(),
             roomCategory = "MUSIC",
             roomTopicTag = "🎵 موسيقى وطرب (Music)",
-            pinnedAnnouncement = "🎵 استمتع بأجمل الأصوات الغنائية والعزف الحي على المسرح"
+            pinnedAnnouncement = "🎵 استمتع بأجمل الأصوات الغنائية والعزف الحي على المسرح",
+            ambientThemeId = com.example.data.WanasRoomAmbientTheme.COFFEE_SHOP.id
         ),
         ChatRoomMetadata(
             roomId = "room_wanas_edu_1",
@@ -434,7 +349,8 @@ class ChatRoomViewModel(
             timestamp = Timestamp.now(),
             roomCategory = "EDUCATION",
             roomTopicTag = "🎓 تعليم وثقافة (Education)",
-            pinnedAnnouncement = "🎓 تعلم اللغات، مهارات العمل الحر، وتبادل الخبرات التعليمية"
+            pinnedAnnouncement = "🎓 تعلم اللغات، مهارات العمل الحر، وتبادل الخبرات التعليمية",
+            ambientThemeId = com.example.data.WanasRoomAmbientTheme.FOREST_BREEZE.id
         ),
         ChatRoomMetadata(
             roomId = "room_wanas_vip_private",
@@ -446,7 +362,8 @@ class ChatRoomViewModel(
             roomTopicTag = "🔒 غرفة خاصة بباسورد",
             micSeatsCount = 8,
             roomCategory = "VIP_LOCKED",
-            pinnedAnnouncement = "👑 صالون خاص للأعضاء المميزين وأصدقاء السهرة (الكود: 2026)"
+            pinnedAnnouncement = "👑 صالون خاص للأعضاء المميزين وأصدقاء السهرة (الكود: 2026)",
+            ambientThemeId = com.example.data.WanasRoomAmbientTheme.ROYAL_NIGHT.id
         ),
         ChatRoomMetadata(
             roomId = "room_wanas_laugh_2",
@@ -455,7 +372,8 @@ class ChatRoomViewModel(
             timestamp = Timestamp.now(),
             roomCategory = "COMEDY",
             roomTopicTag = "😂 فرفشة وضحك",
-            pinnedAnnouncement = "😂 ممنوع الزعل! احكي نكتة أو موقف مضحك وشاركنا الضحكة"
+            pinnedAnnouncement = "😂 ممنوع الزعل! احكي نكتة أو موقف مضحك وشاركنا الضحكة",
+            ambientThemeId = com.example.data.WanasRoomAmbientTheme.DESERT_CAMPFIRE.id
         ),
         ChatRoomMetadata(
             roomId = "room_wanas_taarof_3",
@@ -463,7 +381,8 @@ class ChatRoomViewModel(
             creatorId = currentUserId,
             timestamp = Timestamp.now(),
             roomCategory = "GENERAL",
-            roomTopicTag = "🌐 عام • تعارف راقي"
+            roomTopicTag = "🌐 عام • تعارف راقي",
+            ambientThemeId = com.example.data.WanasRoomAmbientTheme.COFFEE_SHOP.id
         ),
         ChatRoomMetadata(
             roomId = "room_wanas_kora_4",
@@ -471,7 +390,8 @@ class ChatRoomViewModel(
             creatorId = currentUserId,
             timestamp = Timestamp.now(),
             roomCategory = "GAMES_SPORTS",
-            roomTopicTag = "⚽ ستوديو الكورة"
+            roomTopicTag = "⚽ ستوديو الكورة",
+            ambientThemeId = com.example.data.WanasRoomAmbientTheme.NEON_LOUNGE.id
         ),
         ChatRoomMetadata(
             roomId = "room_wanas_games_5",
@@ -479,7 +399,8 @@ class ChatRoomViewModel(
             creatorId = currentUserId,
             timestamp = Timestamp.now(),
             roomCategory = "GAMES_SPORTS",
-            roomTopicTag = "🎮 تحديات PK"
+            roomTopicTag = "🎮 تحديات PK",
+            ambientThemeId = com.example.data.WanasRoomAmbientTheme.NEON_LOUNGE.id
         ),
         ChatRoomMetadata(
             roomId = "room_wanas_study_6",
@@ -487,7 +408,8 @@ class ChatRoomViewModel(
             creatorId = currentUserId,
             timestamp = Timestamp.now(),
             roomCategory = "EDUCATION",
-            roomTopicTag = "🎓 تعليم ومذاكرة وهدوء"
+            roomTopicTag = "🎓 تعليم ومذاكرة وهدوء",
+            ambientThemeId = com.example.data.WanasRoomAmbientTheme.RAINY_NIGHT.id
         ),
         ChatRoomMetadata(
             roomId = "room_wanas_fadfada_7",
@@ -495,7 +417,8 @@ class ChatRoomViewModel(
             creatorId = currentUserId,
             timestamp = Timestamp.now(),
             roomCategory = "STUDY_CALM",
-            roomTopicTag = "💭 استماع ودعم"
+            roomTopicTag = "💭 استماع ودعم",
+            ambientThemeId = com.example.data.WanasRoomAmbientTheme.RAINY_NIGHT.id
         )
     )
 
@@ -621,6 +544,8 @@ class ChatRoomViewModel(
             it.copy(
                 waitingListenerRequests = emptyList(),
                 friendsList = emptyList(),
+                managedMembersDirectory = emptyList(),
+                roomTopSupporters = emptyList(),
                 safetyReports = emptyList(),
                 pushNotifications = emptyList(),
                 latestPushBanner = null
@@ -1465,7 +1390,7 @@ class ChatRoomViewModel(
         newStatus: ManagedAccountStatus,
         reasonAr: String = "قرار إداري من صاحب التطبيق"
     ) {
-        val cleanName = memberNameOrQuery.trim().ifBlank { "User #5482" }
+        val cleanName = memberNameOrQuery.trim().ifBlank { _actionState.value.memberDisplayName }
         _actionState.update { st ->
             val existing = st.managedMembersDirectory.find {
                 it.displayName.equals(cleanName, ignoreCase = true) || it.memberId.equals(cleanName, ignoreCase = true)
@@ -1735,9 +1660,15 @@ class ChatRoomViewModel(
         newWelcomeText: String? = null,
         newRoomName: String? = null,
         newRoomDescription: String? = null,
-        newMaxCapacity: Int? = null
+        newMaxCapacity: Int? = null,
+        newAmbientThemeId: String? = null
     ) {
         val currentRoom = _actionState.value.activeRoom ?: return
+        val resolvedTheme = if (!newAmbientThemeId.isNullOrBlank()) {
+            com.example.data.WanasRoomAmbientTheme.resolveTheme(newAmbientThemeId).id
+        } else {
+            currentRoom.ambientThemeId
+        }
         val updatedRoom = currentRoom.copy(
             isRoomChatLocked = if (toggleChatLock) !currentRoom.isRoomChatLocked else currentRoom.isRoomChatLocked,
             isSlowModeActive = if (toggleSlowMode) !currentRoom.isSlowModeActive else currentRoom.isSlowModeActive,
@@ -1747,9 +1678,13 @@ class ChatRoomViewModel(
             roomWelcomeMessage = newWelcomeText?.trim()?.ifBlank { currentRoom.roomWelcomeMessage } ?: currentRoom.roomWelcomeMessage,
             roomName = newRoomName?.trim()?.ifBlank { currentRoom.roomName } ?: currentRoom.roomName,
             roomDescription = newRoomDescription?.trim()?.ifBlank { currentRoom.roomDescription } ?: currentRoom.roomDescription,
-            maxRoomMembersCapacity = newMaxCapacity?.coerceIn(10, 500) ?: currentRoom.maxRoomMembersCapacity
+            maxRoomMembersCapacity = newMaxCapacity?.coerceIn(10, 500) ?: currentRoom.maxRoomMembersCapacity,
+            ambientThemeId = resolvedTheme
         )
         _localRooms.update { list -> list.map { if (it.roomId == currentRoom.roomId) updatedRoom else it } }
+        viewModelScope.launch {
+            supabaseService.upsertSharedRoom(updatedRoom)
+        }
         _actionState.update { st ->
             st.copy(
                 activeRoom = updatedRoom,
@@ -1757,10 +1692,41 @@ class ChatRoomViewModel(
             )
         }
         recordAdminAuditLog(
-            actionTaken = "تحديث إعدادات الغرفة (الشات / الهدايا / القوانين)",
+            actionTaken = "تحديث إعدادات الغرفة (الشات / الهدايا / القوانين / الثيم)",
             targetName = updatedRoom.roomName,
             locationRoomOrSection = "لوحة أدمن الغرفة"
         )
+    }
+
+    /**
+     * Allows the room creator / host / admin to change the room's ambient background theme
+     * (e.g., 'Coffee Shop', 'Rainy Night', 'Neon Lounge') and immediately updates the room UI color scheme.
+     */
+    fun updateRoomAmbientTheme(roomId: String, ambientThemeId: String) {
+        val resolvedTheme = com.example.data.WanasRoomAmbientTheme.resolveTheme(ambientThemeId)
+        _localRooms.update { list ->
+            list.map { rm ->
+                if (rm.roomId == roomId) {
+                    rm.copy(ambientThemeId = resolvedTheme.id)
+                } else rm
+            }
+        }
+        val targetRoom = _localRooms.value.find { it.roomId == roomId }
+            ?: _actionState.value.activeRoom?.takeIf { it.roomId == roomId }?.copy(ambientThemeId = resolvedTheme.id)
+        if (targetRoom != null) {
+            viewModelScope.launch {
+                supabaseService.upsertSharedRoom(targetRoom)
+            }
+        }
+        _actionState.update { st ->
+            val updatedActive = if (st.activeRoom?.roomId == roomId) {
+                st.activeRoom.copy(ambientThemeId = resolvedTheme.id)
+            } else st.activeRoom
+            st.copy(
+                activeRoom = updatedActive,
+                statusMessage = "${resolvedTheme.emoji} تم تغيير أجواء وثيم الغرفة إلى «${resolvedTheme.titleAr}» بنجاح!"
+            )
+        }
     }
 
     fun deleteSingleMessageInActiveRoomByAdmin(messageId: String) {
@@ -2609,7 +2575,7 @@ class ChatRoomViewModel(
         roomCategory: String = WanasRoomCategoryFilter.GENERAL.id
     ) {
         val resolvedFriendName = customFriendName.trim().ifBlank {
-            friend?.friendName?.takeIf { it.isNotBlank() } ?: "أحمد المصري 🌟"
+            friend?.friendName?.takeIf { it.isNotBlank() } ?: _actionState.value.memberDisplayName
         }
         val resolvedFriendId = friend?.friendUserId?.takeIf { it.isNotBlank() }
             ?: "friend_${resolvedFriendName.hashCode().let { if (it < 0) -it else it }}"
@@ -3421,12 +3387,14 @@ class ChatRoomViewModel(
     fun createChatRoom(
         roomName: String,
         roomPassword: String = "",
-        roomCategory: String = WanasRoomCategoryFilter.GENERAL.id
+        roomCategory: String = WanasRoomCategoryFilter.GENERAL.id,
+        ambientThemeId: String = com.example.data.WanasRoomAmbientTheme.ROYAL_NIGHT.id
     ) {
         val cleanName = roomName.trim()
         val cleanPass = roomPassword.trim()
         val resolvedCategoryFilter = WanasRoomCategoryFilter.resolveDisplayFilter(roomCategory)
         val cleanCategory = resolvedCategoryFilter.id
+        val resolvedTheme = com.example.data.WanasRoomAmbientTheme.resolveTheme(ambientThemeId)
         if (cleanName.isBlank()) {
             _actionState.update { it.copy(errorMessage = "يرجى إدخال اسم الغرفة") }
             return
@@ -3439,13 +3407,15 @@ class ChatRoomViewModel(
                     roomName = cleanName,
                     creatorId = currentUserId,
                     roomPassword = cleanPass,
-                    roomCategory = cleanCategory
+                    roomCategory = cleanCategory,
+                    ambientThemeId = resolvedTheme.id
                 )
                 result.fold(
                     onSuccess = { created ->
                         val enriched = created.copy(
                             roomCategory = cleanCategory,
-                            roomTopicTag = "${resolvedCategoryFilter.emoji} ${resolvedCategoryFilter.labelAr}"
+                            roomTopicTag = "${resolvedCategoryFilter.emoji} ${resolvedCategoryFilter.labelAr}",
+                            ambientThemeId = resolvedTheme.id
                         )
                         _localRooms.update { current ->
                             listOf(enriched) + current.filterNot { it.roomId == enriched.roomId }
@@ -3454,16 +3424,16 @@ class ChatRoomViewModel(
                             it.copy(
                                 isSubmitting = false,
                                 statusMessage = if (cleanPass.isNotEmpty()) {
-                                    "✅ تم حفظ غرفة «${enriched.roomName}» (${resolvedCategoryFilter.labelAr}) بكلمة مرور خاصة 🔒"
+                                    "✅ تم حفظ غرفة «${enriched.roomName}» (${resolvedCategoryFilter.labelAr} • ${resolvedTheme.emoji} ${resolvedTheme.titleAr}) بكلمة مرور خاصة 🔒"
                                 } else {
-                                    "✅ تم حفظ غرفة «${enriched.roomName}» في تصنيف (${resolvedCategoryFilter.labelAr})"
+                                    "✅ تم حفظ غرفة «${enriched.roomName}» في تصنيف (${resolvedCategoryFilter.labelAr} • ${resolvedTheme.emoji} ${resolvedTheme.titleAr})"
                                 }
                             )
                         }
                         recordHistoryAndIncrementStat(
                             roomId = enriched.roomId,
                             roomName = enriched.roomName,
-                            messageText = "إنشاء غرفة جديدة (${resolvedCategoryFilter.labelAr}): ${enriched.roomName}",
+                            messageText = "إنشاء غرفة جديدة (${resolvedCategoryFilter.labelAr} • ${resolvedTheme.titleAr}): ${enriched.roomName}",
                             activityType = "CREATE_ROOM"
                         )
                         knownRoomIdsSnapshot.add(enriched.roomId)
@@ -3474,7 +3444,7 @@ class ChatRoomViewModel(
                             roomId = enriched.roomId,
                             roomName = enriched.roomName,
                             notificationType = "FRIEND_STARTED_ROOM",
-                            messageBody = "🎙️ بدأ صديقك «${_actionState.value.memberDisplayName}» غرفة صوتية جديدة «${enriched.roomName}» في تصنيف (${resolvedCategoryFilter.labelAr})",
+                            messageBody = "🎙️ بدأ صديقك «${_actionState.value.memberDisplayName}» غرفة صوتية جديدة «${enriched.roomName}» (${resolvedTheme.emoji} ${resolvedTheme.titleAr})",
                             senderId = currentUserId
                         )
                     },
@@ -3496,7 +3466,8 @@ class ChatRoomViewModel(
                     roomPassword = cleanPass,
                     isPasswordProtected = cleanPass.isNotEmpty(),
                     roomCategory = cleanCategory,
-                    roomTopicTag = "${resolvedCategoryFilter.emoji} ${resolvedCategoryFilter.labelAr}"
+                    roomTopicTag = "${resolvedCategoryFilter.emoji} ${resolvedCategoryFilter.labelAr}",
+                    ambientThemeId = resolvedTheme.id
                 )
                 supabaseService.upsertSharedRoom(localRoom)
                 knownRoomIdsSnapshot.add(localRoom.roomId)
@@ -3925,28 +3896,7 @@ class ChatRoomViewModel(
         }
         _localRoomMessages.update { it + (room.roomId to existingMessages) }
 
-        val existingGifts = _localRoomGiftTransactions.value[room.roomId].orEmpty().ifEmpty {
-            listOf(
-                RoomGiftTransactionDocument(
-                    transactionId = "gift_seed_${room.roomId}",
-                    roomId = room.roomId,
-                    roomName = room.roomName,
-                    giftId = "gift_crown",
-                    giftNameAr = "التاج الملكي",
-                    giftEmoji = "👑",
-                    costCoins = 100,
-                    quantity = 1,
-                    senderId = "usr_ahmed_1",
-                    senderMemberCode = "WNS-777777",
-                    senderName = "أحمد المصري 🌟",
-                    recipientId = room.creatorId.ifBlank { "wanas_host" },
-                    recipientName = "مضيف السهرة 👑",
-                    pkTeamSupported = "RED",
-                    pkBonusPoints = 300,
-                    timestamp = Timestamp.now()
-                )
-            )
-        }
+        val existingGifts = _localRoomGiftTransactions.value[room.roomId].orEmpty()
         _localRoomGiftTransactions.update { it + (room.roomId to existingGifts) }
 
         _actionState.update {
@@ -4017,6 +3967,158 @@ class ChatRoomViewModel(
     }
 
     /**
+     * Adds a user to the currently active voice chat room in Firestore (`/chat_rooms/{roomId}/active_members/{memberId}`),
+     * updates the live active members list, seats them on an available empty stage seat if any,
+     * and increments the room's activeMembersCount.
+     */
+    fun addUserToActiveRoom(
+        memberName: String,
+        targetUserId: String = "",
+        avatarEmoji: String = "🎙️",
+        roleBadge: String = "عضو مضاف بالغرفة 🎙️"
+    ) {
+        val currentRoom = _actionState.value.activeRoom ?: return
+        val cleanName = memberName.trim()
+        if (cleanName.isBlank()) {
+            _actionState.update { it.copy(errorMessage = "يرجى إدخال اسم المستخدم لإضافته إلى الغرفة النشطة") }
+            return
+        }
+        val resolvedId = targetUserId.trim().ifBlank {
+            "usr_${cleanName.hashCode().let { if (it < 0) -it else it }}"
+        }.replace(Regex("[^a-zA-Z0-9_\\-]"), "_").take(64).ifBlank { "wanas_user" }
+        val cleanEmoji = avatarEmoji.trim().ifBlank { "🎙️" }
+        val cleanBadge = roleBadge.trim().ifBlank { "عضو مضاف بالغرفة 🎙️" }
+
+        val newActiveMember = RoomActiveMember(
+            userId = resolvedId,
+            roomId = currentRoom.roomId,
+            memberName = cleanName,
+            avatarEmoji = cleanEmoji,
+            roleBadge = cleanBadge,
+            supabaseLinked = true,
+            joinedAt = Timestamp.now()
+        )
+
+        val joinBanner = RoomPresenceBannerEvent(
+            eventId = "add_usr_${System.currentTimeMillis()}",
+            roomId = currentRoom.roomId,
+            userId = resolvedId,
+            memberName = cleanName,
+            avatarEmoji = cleanEmoji,
+            eventType = "JOIN"
+        )
+        showTransientBanner(joinBanner)
+
+        _actionState.update { st ->
+            val updatedMembers = (listOf(newActiveMember) + st.activeRoomMembers.filterNot {
+                it.userId == resolvedId || it.memberName.equals(cleanName, ignoreCase = true)
+            }).distinctBy { it.userId }
+
+            val emptySeatIdx = st.activeRoomSeats.indexOfFirst { it.isEmpty }
+            val updatedSeats = if (emptySeatIdx >= 0 && st.activeRoomSeats.none { it.occupantUserId == resolvedId }) {
+                st.activeRoomSeats.map { slot ->
+                    if (slot.seatIndex == emptySeatIdx) {
+                        slot.copy(
+                            occupantUserId = resolvedId,
+                            occupantMemberCode = generateMemberIdCode(resolvedId),
+                            occupantName = cleanName,
+                            occupantEmoji = cleanEmoji,
+                            seatRole = VoiceSeatRoleBadge.SEATED_MEMBER,
+                            isMuted = true,
+                            isSpeaking = false
+                        )
+                    } else slot
+                }
+            } else {
+                st.activeRoomSeats
+            }
+
+            val updatedRoom = currentRoom.copy(activeMembersCount = updatedMembers.size)
+            st.copy(
+                activeRoom = updatedRoom,
+                activeRoomMembers = updatedMembers,
+                activeRoomSeats = updatedSeats,
+                statusMessage = "✅ تمت إضافة المستخدم «$cleanName» (#${generateMemberIdCode(resolvedId)}) إلى الغرفة النشطة وحفظه في Firestore (/chat_rooms/${currentRoom.roomId}/active_members/$resolvedId)!",
+                errorMessage = null
+            )
+        }
+
+        _localRooms.update { list ->
+            list.map { rm ->
+                if (rm.roomId == currentRoom.roomId) {
+                    rm.copy(activeMembersCount = _actionState.value.activeRoomMembers.size)
+                } else rm
+            }
+        }
+
+        syncActiveRoomSeatsToSupabaseRealtime()
+
+        viewModelScope.launch {
+            repository.addUserToActiveRoomInFirestore(
+                roomId = currentRoom.roomId,
+                targetUserId = resolvedId,
+                memberName = cleanName,
+                avatarEmoji = cleanEmoji,
+                roleBadge = cleanBadge,
+                supabaseLinked = true
+            )
+            supabaseService.recordRoomPresenceEventInSupabase(
+                roomId = currentRoom.roomId,
+                userId = resolvedId,
+                memberName = cleanName,
+                eventType = "JOIN"
+            )
+        }
+    }
+
+    /**
+     * Removes a user from the currently active voice chat room in Firestore (`/chat_rooms/{roomId}/active_members/{memberId}`)
+     * and vacates their seat on the stage.
+     */
+    fun removeUserFromActiveRoom(targetUserId: String, memberName: String = "") {
+        val currentRoom = _actionState.value.activeRoom ?: return
+        val cleanId = targetUserId.trim()
+        if (cleanId.isBlank()) return
+        val resolvedName = memberName.trim().ifBlank {
+            _actionState.value.activeRoomMembers.find { it.userId == cleanId }?.memberName ?: cleanId
+        }
+
+        _actionState.update { st ->
+            val updatedMembers = st.activeRoomMembers.filterNot { it.userId == cleanId }
+            val updatedSeats = st.activeRoomSeats.map { slot ->
+                if (slot.occupantUserId == cleanId) {
+                    VoiceRoomSeatSlot(seatIndex = slot.seatIndex)
+                } else slot
+            }
+            val updatedRoom = currentRoom.copy(activeMembersCount = updatedMembers.size)
+            st.copy(
+                activeRoom = updatedRoom,
+                activeRoomMembers = updatedMembers,
+                activeRoomSeats = updatedSeats,
+                statusMessage = "🗑️ تم إزالة المستخدم «$resolvedName» من الغرفة النشطة وتحديث Firestore",
+                errorMessage = null
+            )
+        }
+
+        _localRooms.update { list ->
+            list.map { rm ->
+                if (rm.roomId == currentRoom.roomId) {
+                    rm.copy(activeMembersCount = _actionState.value.activeRoomMembers.size)
+                } else rm
+            }
+        }
+
+        syncActiveRoomSeatsToSupabaseRealtime()
+
+        viewModelScope.launch {
+            repository.removeUserFromActiveRoomInFirestore(
+                roomId = currentRoom.roomId,
+                targetUserId = cleanId
+            )
+        }
+    }
+
+    /**
      * Leaves the current room:
      * - Displays transient banner `"خرج العضو <name>"` and auto-hides after 3.5 seconds.
      * - Removes the member from the room's active members list.
@@ -4038,6 +4140,9 @@ class ChatRoomViewModel(
 
         activeMembersJob?.cancel()
         presenceEventsJob?.cancel()
+        roomSeatsRealtimeJob?.cancel()
+        roomMicRequestsRealtimeJob?.cancel()
+        roomGiftTransactionsJob?.cancel()
 
         _actionState.update {
             it.copy(

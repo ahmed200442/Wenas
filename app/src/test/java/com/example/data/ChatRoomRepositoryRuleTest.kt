@@ -24,7 +24,8 @@ class ChatRoomRepositoryRuleTest : FirestoreEmulatorTestBase() {
       repository.createChatRoom(
         roomName = ROOM_NAME,
         creatorId = aliceUid,
-        customRoomId = customRoomId
+        customRoomId = customRoomId,
+        ambientThemeId = WanasRoomAmbientTheme.COFFEE_SHOP.id
       )
     }
     assertTrue(createResult.isSuccess)
@@ -32,6 +33,7 @@ class ChatRoomRepositoryRuleTest : FirestoreEmulatorTestBase() {
     assertEquals(customRoomId, metadata.roomId)
     assertEquals(ROOM_NAME, metadata.roomName)
     assertEquals(aliceUid, metadata.creatorId)
+    assertEquals(WanasRoomAmbientTheme.COFFEE_SHOP.id, metadata.ambientThemeId)
     assertNotNull(metadata.timestamp)
   }
 

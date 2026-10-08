@@ -79,37 +79,40 @@ jobs:
             fi
           fi
 
-      - name: Build Debug APK with Gradle
+      - name: Build Debug APK v3.1 with Gradle
         run: |
-          if gradle :app:assembleDebug --no-daemon --stacktrace; then
-            cp app/build/outputs/apk/debug/app-debug.apk ./wanas-latest.apk
-          elif [ -f "./wanas-latest.apk" ]; then
-            echo "Using pre-built wanas-latest.apk"
-          else
-            exit 1
-          fi
+          gradle :app:assembleDebug --no-daemon --stacktrace
+          cp -f app/build/outputs/apk/debug/app-debug.apk ./wanas3.1.apk
+          cp -f app/build/outputs/apk/debug/app-debug.apk ./wanas-v3.1.apk
+          cp -f app/build/outputs/apk/debug/app-debug.apk ./wanas-latest.apk
 
       - name: Verify APK Output
-        run: ls -lh ./wanas-latest.apk
+        run: ls -lh ./wanas3.1.apk ./wanas-v3.1.apk ./wanas-latest.apk
 
-      - name: Upload APK Artifact
+      - name: Upload APK Artifact (v3.1)
         uses: actions/upload-artifact@v4
         with:
-          name: wanas-debug-apk
-          path: ./wanas-latest.apk
+          name: wanas-v3.1-apk
+          path: |
+            ./wanas3.1.apk
+            ./wanas-v3.1.apk
+            ./wanas-latest.apk
           if-no-files-found: error
           retention-days: 90
 
-      - name: Publish APK to GitHub Releases
+      - name: Publish APK v3.1 to GitHub Releases
         if: github.event_name != 'pull_request'
         continue-on-error: true
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: latest
-          name: "أحدث نسخة من تطبيق وَنَس (Wanaas APK)"
+          tag_name: v3.1
+          name: "تطبيق وَنَس v3.1 (Wanaas APK v3.1)"
           body: |
-            ### 📲 تحميل تطبيق وَنَس (Wanaas APK) المباشر
-            اضغط على **`wanas-latest.apk`** بالأسفل لتحميل وتثبيت أحدث نسخة من التطبيق مباشرة على هاتفك.
-          files: ./wanas-latest.apk
+            ### 📲 تحميل تطبيق وَنَس v3.1 (Wanaas APK v3.1) المباشر
+            اضغط على **`wanas3.1.apk`** أو **`wanas-v3.1.apk`** بالأسفل لتحميل وتثبيت النسخة **v3.1** مع خدمة البث الصوتي المباشر (WebRTC) على هاتفك.
+          files: |
+            ./wanas3.1.apk
+            ./wanas-v3.1.apk
+            ./wanas-latest.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

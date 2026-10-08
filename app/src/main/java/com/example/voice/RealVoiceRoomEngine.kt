@@ -267,6 +267,10 @@ class RealVoiceRoomEngine(
         }
         if (roomId.isNotBlank()) {
             activeRoomId = roomId
+            WebRtcVoiceRoomService.startVoiceStreamingService(
+                context = appContext,
+                roomId = roomId
+            )
         }
 
         requestAudioFocus()
@@ -324,6 +328,7 @@ class RealVoiceRoomEngine(
     private fun initializeNativeWebRtcStack(enableLocalMicTrack: Boolean): Boolean {
         if (peerConnectionFactory != null && localWebRtcAudioTrack != null) {
             runCatching { localWebRtcAudioTrack?.setEnabled(enableLocalMicTrack) }
+            runCatching { audioDeviceModule?.setMicrophoneMute(!enableLocalMicTrack) }
             return true
         }
         return try {
@@ -332,9 +337,10 @@ class RealVoiceRoomEngine(
                 .createInitializationOptions()
             PeerConnectionFactory.initialize(initOptions)
 
+            // Disable hardware AEC/NS by default to prevent native AudioEffect crashes and E/org.webrtc.Logging errors on devices/emulators where HW AEC/NS is unsupported
             val adm = JavaAudioDeviceModule.builder(appContext)
-                .setUseHardwareAcousticEchoCanceler(true)
-                .setUseHardwareNoiseSuppressor(true)
+                .setUseHardwareAcousticEchoCanceler(false)
+                .setUseHardwareNoiseSuppressor(false)
                 .createAudioDeviceModule()
             audioDeviceModule = adm
 
@@ -346,16 +352,16 @@ class RealVoiceRoomEngine(
             val source = factory.createAudioSource(audioMediaConstraints)
             localAudioSource = source
 
-            val track = factory.createAudioTrack("WANAS_NATIVE_AUDIO_TRACK_$localUserId", source)
-            track.setEnabled(enableLocalMicTrack)
-            track.setVolume(1.0)
+            val track = factory.createAudioTrack("WANAS_NATIVE_AUDIO_TRACK_${localUserId.ifBlank { "user" }}", source)
+            runCatching { track.setEnabled(enableLocalMicTrack) }
+            runCatching { track.setVolume(1.0) }
             localWebRtcAudioTrack = track
 
-            adm.setMicrophoneMute(!enableLocalMicTrack)
-            adm.setSpeakerMute(false)
+            runCatching { adm.setMicrophoneMute(!enableLocalMicTrack) }
+            runCatching { adm.setSpeakerMute(false) }
             true
         } catch (t: Throwable) {
-            Log.w(TAG, "WebRTC Native initialization note (e.g., JVM unit test environment): ${t.message}")
+            Log.w(TAG, "WebRTC Native initialization fallback note: ${t.message}")
             false
         }
     }
@@ -462,17 +468,18 @@ class RealVoiceRoomEngine(
             runCatching { Firebase.auth.currentUser?.uid }.getOrNull().orEmpty()
         }
 
-        // Gather real peer user IDs from active room members + occupied voice seats
+            // Gather real peer user IDs from active room members + occupied voice seats (excluding synthetic placeholder IDs)
+        val syntheticHostIds = setOf("wanas_host", "wanas_vip_host", "wanas_local_user", "wanas_member")
         val activePeerIds = buildSet {
             roomMembers.forEach { member ->
                 val uid = member.userId.trim()
-                if (uid.isNotBlank() && uid != selfUid) {
+                if (uid.isNotBlank() && uid != selfUid && uid !in syntheticHostIds) {
                     add(uid)
                 }
             }
             roomSeats.forEach { seat ->
                 val uid = seat.occupantUserId?.trim().orEmpty()
-                if (uid.isNotBlank() && uid != selfUid) {
+                if (uid.isNotBlank() && uid != selfUid && uid !in syntheticHostIds) {
                     add(uid)
                 }
             }
@@ -841,82 +848,92 @@ class RealVoiceRoomEngine(
         when (signal.signalType.uppercase()) {
             "OFFER" -> {
                 if (signal.sdp.isBlank()) return
-                val remoteOffer = SessionDescription(SessionDescription.Type.OFFER, signal.sdp)
-                pc.setRemoteDescription(
-                    object : SimpleSdpObserver() {
-                        override fun onSetSuccess() {
-                            remoteDescriptionReady[remotePeerId] = true
-                            drainQueuedIceCandidates(remotePeerId, pc)
-                            // Create and publish SDP ANSWER back to sender
-                            pc.createAnswer(
-                                object : SimpleSdpObserver() {
-                                    override fun onCreateSuccess(answerDesc: SessionDescription?) {
-                                        if (answerDesc == null) return
-                                        pc.setLocalDescription(
-                                            object : SimpleSdpObserver() {
-                                                override fun onSetSuccess() {
-                                                    scope.launch(Dispatchers.IO) {
-                                                        signalingRepository?.publishWebRtcSignal(
-                                                            roomId = roomId,
-                                                            targetUserId = remotePeerId,
-                                                            signalType = "ANSWER",
-                                                            sdp = answerDesc.description ?: "",
-                                                            sessionEpochMs = System.currentTimeMillis(),
-                                                            senderName = localDisplayName,
-                                                            senderId = localUserId
-                                                        )
-                                                        _state.update {
-                                                            it.copy(
-                                                                lastSignalingEventLabel = "✅ تم إرسال SDP Answer إلى ${signal.senderName}"
-                                                            )
-                                                        }
-                                                    }
+                runCatching {
+                    val remoteOffer = SessionDescription(SessionDescription.Type.OFFER, signal.sdp)
+                    pc.setRemoteDescription(
+                        object : SimpleSdpObserver() {
+                            override fun onSetSuccess() {
+                                remoteDescriptionReady[remotePeerId] = true
+                                drainQueuedIceCandidates(remotePeerId, pc)
+                                // Create and publish SDP ANSWER back to sender
+                                runCatching {
+                                    pc.createAnswer(
+                                        object : SimpleSdpObserver() {
+                                            override fun onCreateSuccess(answerDesc: SessionDescription?) {
+                                                if (answerDesc == null) return
+                                                runCatching {
+                                                    pc.setLocalDescription(
+                                                        object : SimpleSdpObserver() {
+                                                            override fun onSetSuccess() {
+                                                                scope.launch(Dispatchers.IO) {
+                                                                    signalingRepository?.publishWebRtcSignal(
+                                                                        roomId = roomId,
+                                                                        targetUserId = remotePeerId,
+                                                                        signalType = "ANSWER",
+                                                                        sdp = answerDesc.description ?: "",
+                                                                        sessionEpochMs = System.currentTimeMillis(),
+                                                                        senderName = localDisplayName,
+                                                                        senderId = localUserId
+                                                                    )
+                                                                    _state.update {
+                                                                        it.copy(
+                                                                            lastSignalingEventLabel = "✅ تم إرسال SDP Answer إلى ${signal.senderName}"
+                                                                        )
+                                                                    }
+                                                                }
+                                                            }
+                                                        },
+                                                        answerDesc
+                                                    )
                                                 }
-                                            },
-                                            answerDesc
-                                        )
-                                    }
-                                },
-                                sdpMediaConstraints
-                            )
-                        }
-                    },
-                    remoteOffer
-                )
+                                            }
+                                        },
+                                        sdpMediaConstraints
+                                    )
+                                }
+                            }
+                        },
+                        remoteOffer
+                    )
+                }
             }
 
             "ANSWER" -> {
                 if (signal.sdp.isBlank()) return
-                val remoteAnswer = SessionDescription(SessionDescription.Type.ANSWER, signal.sdp)
-                pc.setRemoteDescription(
-                    object : SimpleSdpObserver() {
-                        override fun onSetSuccess() {
-                            remoteDescriptionReady[remotePeerId] = true
-                            drainQueuedIceCandidates(remotePeerId, pc)
-                            _state.update {
-                                it.copy(
-                                    lastSignalingEventLabel = "🤝 اكتمل ربط SDP Answer مع ${signal.senderName}"
-                                )
+                runCatching {
+                    val remoteAnswer = SessionDescription(SessionDescription.Type.ANSWER, signal.sdp)
+                    pc.setRemoteDescription(
+                        object : SimpleSdpObserver() {
+                            override fun onSetSuccess() {
+                                remoteDescriptionReady[remotePeerId] = true
+                                drainQueuedIceCandidates(remotePeerId, pc)
+                                _state.update {
+                                    it.copy(
+                                        lastSignalingEventLabel = "🤝 اكتمل ربط SDP Answer مع ${signal.senderName}"
+                                    )
+                                }
                             }
-                        }
-                    },
-                    remoteAnswer
-                )
+                        },
+                        remoteAnswer
+                    )
+                }
             }
 
             "ICE_CANDIDATE" -> {
                 if (signal.candidate.isBlank()) return
-                val iceCandidate = IceCandidate(
-                    signal.sdpMid.ifBlank { "0" },
-                    signal.sdpMLineIndex.coerceAtLeast(0),
-                    signal.candidate
-                )
-                if (remoteDescriptionReady[remotePeerId] == true) {
-                    runCatching { pc.addIceCandidate(iceCandidate) }
-                } else {
-                    val queue = pendingIceCandidates.getOrPut(remotePeerId) { mutableListOf() }
-                    synchronized(queue) {
-                        queue.add(iceCandidate)
+                runCatching {
+                    val iceCandidate = IceCandidate(
+                        signal.sdpMid.ifBlank { "0" },
+                        signal.sdpMLineIndex.coerceAtLeast(0),
+                        signal.candidate
+                    )
+                    if (remoteDescriptionReady[remotePeerId] == true) {
+                        runCatching { pc.addIceCandidate(iceCandidate) }
+                    } else {
+                        val queue = pendingIceCandidates.getOrPut(remotePeerId) { mutableListOf() }
+                        synchronized(queue) {
+                            queue.add(iceCandidate)
+                        }
                     }
                 }
             }
@@ -1218,6 +1235,7 @@ class RealVoiceRoomEngine(
         peerConnectionFactory = null
 
         abandonAudioFocus()
+        WebRtcVoiceRoomService.stopVoiceStreamingService(appContext)
         _state.update {
             VoiceEngineState()
         }

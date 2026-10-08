@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Wanas-v3.1-cloud-latest"
+rootProject.name = "Wanas-v3.1"
 include(":app")

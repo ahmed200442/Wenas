@@ -49,7 +49,8 @@ service cloud.firestore {
       return data.roomId is string && isValidId(data.roomId) &&
              data.roomName is string && data.roomName.size() >= 1 && data.roomName.size() <= 120 &&
              data.creatorId is string && isValidId(data.creatorId) &&
-             data.timestamp is timestamp && data.timestamp <= request.time;
+             data.timestamp is timestamp && data.timestamp <= request.time &&
+             (!('ambientThemeId' in data) || (data.ambientThemeId is string && data.ambientThemeId.size() >= 1 && data.ambientThemeId.size() <= 64));
     }
 
     function isValidMemberProfile(data) {
@@ -312,7 +313,7 @@ service cloud.firestore {
       allow create: if isSignedIn() &&
                        isValidId(roomId) &&
                        incoming().keys().hasAll(['roomId', 'roomName', 'creatorId', 'timestamp']) &&
-                       incoming().keys().hasOnly(['roomId', 'roomName', 'creatorId', 'timestamp']) &&
+                       incoming().keys().hasOnly(['roomId', 'roomName', 'creatorId', 'timestamp', 'ambientThemeId']) &&
                        incoming().roomId == roomId &&
                        incoming().creatorId == request.auth.uid &&
                        isValidChatRoomMetadata(incoming());
@@ -327,7 +328,7 @@ service cloud.firestore {
                          isAdmin() ||
                          (
                            existing().creatorId == request.auth.uid &&
-                           incoming().diff(existing()).affectedKeys().hasOnly(['roomName'])
+                           incoming().diff(existing()).affectedKeys().hasOnly(['roomName', 'ambientThemeId'])
                          )
                        );
 
@@ -343,9 +344,16 @@ service cloud.firestore {
         allow create: if isSignedIn() &&
                          isValidId(roomId) &&
                          isValidId(memberId) &&
-                         memberId == request.auth.uid &&
-                         incoming().userId == request.auth.uid &&
+                         incoming().userId == memberId &&
                          incoming().roomId == roomId &&
+                         (
+                           memberId == request.auth.uid ||
+                           isAdmin() ||
+                           (
+                             exists(/databases/$(database)/documents/chat_rooms/$(roomId)) &&
+                             get(/databases/$(database)/documents/chat_rooms/$(roomId)).data.creatorId == request.auth.uid
+                           )
+                         ) &&
                          incoming().keys().hasAll(['userId', 'roomId', 'memberName', 'avatarEmoji', 'roleBadge', 'supabaseLinked', 'joinedAt']) &&
                          incoming().keys().hasOnly(['userId', 'roomId', 'memberName', 'avatarEmoji', 'roleBadge', 'supabaseLinked', 'joinedAt']) &&
                          isValidRoomActiveMember(incoming());
@@ -353,7 +361,14 @@ service cloud.firestore {
         allow update: if isSignedIn() &&
                          isValidId(roomId) &&
                          isValidId(memberId) &&
-                         memberId == request.auth.uid &&
+                         (
+                           memberId == request.auth.uid ||
+                           isAdmin() ||
+                           (
+                             exists(/databases/$(database)/documents/chat_rooms/$(roomId)) &&
+                             get(/databases/$(database)/documents/chat_rooms/$(roomId)).data.creatorId == request.auth.uid
+                           )
+                         ) &&
                          isValidRoomActiveMember(incoming()) &&
                          incoming().userId == existing().userId &&
                          incoming().roomId == existing().roomId &&
@@ -362,7 +377,14 @@ service cloud.firestore {
         allow delete: if isSignedIn() &&
                          isValidId(roomId) &&
                          isValidId(memberId) &&
-                         (memberId == request.auth.uid || isAdmin());
+                         (
+                           memberId == request.auth.uid ||
+                           isAdmin() ||
+                           (
+                             exists(/databases/$(database)/documents/chat_rooms/$(roomId)) &&
+                             get(/databases/$(database)/documents/chat_rooms/$(roomId)).data.creatorId == request.auth.uid
+                           )
+                         );
       }
 
       // 5b. Live 8-Seat Voice Stage Subcollection (/chat_rooms/{roomId}/seats/{seatId})

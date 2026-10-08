@@ -16,7 +16,7 @@ android {
     applicationId = "com.aistudio.wanas.vxhpqr"
     minSdk = 24
     targetSdk = 36
-    versionCode = 20
+    versionCode = 22
     versionName = "3.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
